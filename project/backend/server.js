@@ -8,17 +8,21 @@
  *   GET  /history       — in-memory scan history
  *   POST /history/:id/resend — re-send a previous scan by id
  */
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
 const analyzeRoutes = require('./routes/analyze');
 const emailRoutes = require('./routes/email');
 const historyRoutes = require('./routes/history');
 
 const app = express();
+
+console.log('[startup] NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('[startup] cwd:', process.cwd());
+console.log('[startup] entry:', __filename);
 
 // --- Middleware ---
 app.use(cors());
@@ -60,6 +64,17 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server listening on port ${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[startup] Server listening on 0.0.0.0:${PORT}`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+process.on('SIGTERM', () => {
+  console.log('[shutdown] SIGTERM received, closing server');
+  server.close(() => process.exit(0));
 });
