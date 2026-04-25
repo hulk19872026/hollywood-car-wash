@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  thumb: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: '#ddd' },
+  thumb: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.imagePlaceholder },
   itemTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
   itemMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   apiLine: { color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: spacing.sm },

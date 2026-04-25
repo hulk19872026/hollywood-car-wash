@@ -104,7 +104,7 @@ export default function ResultsScreen({ route, navigation }) {
                 if (sent) setSent(false);
               }}
               placeholder="you@example.com"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.placeholder}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
@@ -135,7 +135,7 @@ export default function ResultsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl },
-  image: { width: '100%', aspectRatio: 1, borderRadius: radius.md, backgroundColor: '#eee' },
+  image: { width: '100%', aspectRatio: 1, borderRadius: radius.md, backgroundColor: colors.imagePlaceholder },
   body: { color: colors.text, fontSize: 15, lineHeight: 22 },
   mono: {
     color: colors.text,
@@ -162,6 +162,6 @@ const styles = StyleSheet.create({
     height: 48,
     fontSize: 15,
     color: colors.text,
-    backgroundColor: '#fff',
+    backgroundColor: colors.inputBg,
   },
 });

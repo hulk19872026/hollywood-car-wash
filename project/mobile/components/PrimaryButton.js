@@ -31,7 +31,7 @@ export default function PrimaryButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#fff' : colors.primary} />
+        <ActivityIndicator color={variant === 'primary' ? colors.onPrimary : colors.primary} />
       ) : (
         <View style={styles.row}>
           {icon ? <Text style={[textStyle, { marginRight: 8 }]}>{icon}</Text> : null}
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
 
   v_primary: { backgroundColor: colors.primary },
-  t_primary: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  t_primary: { color: colors.onPrimary, fontSize: 16, fontWeight: '700' },
 
   v_secondary: { backgroundColor: colors.chip },
   t_secondary: { color: colors.chipText, fontSize: 16, fontWeight: '700' },
@@ -64,5 +64,5 @@ const styles = StyleSheet.create({
   t_ghost: { color: colors.text, fontSize: 16, fontWeight: '600' },
 
   v_danger: { backgroundColor: colors.danger },
-  t_danger: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  t_danger: { color: colors.text, fontSize: 16, fontWeight: '700' },
 });

@@ -1,5 +1,17 @@
 const nodemailer = require('nodemailer');
 
+// Hollywood Car Wash palette — black, yellow, red only (white permitted for body text).
+const palette = {
+  black: '#000000',
+  surface: '#0A0A0A',
+  yellow: '#FFD700',
+  yellowSoft: '#FFEA70',
+  red: '#FF0000',
+  white: '#FFFFFF',
+  whiteMuted: 'rgba(255,255,255,0.72)',
+  border: 'rgba(255,215,0,0.30)',
+};
+
 function createTransporter() {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('EMAIL_USER and EMAIL_PASS must be configured');
@@ -15,30 +27,30 @@ function createTransporter() {
 
 function buildHtml({ description, text, objects }) {
   const objectsHtml = (objects || []).length
-    ? `<ul style="margin:0;padding-left:20px;">${objects
+    ? `<ul style="margin:0;padding-left:20px;color:${palette.white};">${objects
         .map((o) => `<li style="margin:4px 0;">${escapeHtml(o)}</li>`)
         .join('')}</ul>`
-    : '<em style="color:#888;">No objects detected.</em>';
+    : `<em style="color:${palette.whiteMuted};">No objects detected.</em>`;
 
   return `
-  <div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#f6f8fb; padding:24px;">
-    <div style="max-width:640px; margin:0 auto; background:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.06);">
-      <div style="background:linear-gradient(135deg,#4f46e5,#9333ea); color:#fff; padding:28px 32px;">
-        <h1 style="margin:0; font-size:22px; font-weight:700;">📸 Image Analysis Results</h1>
-        <p style="margin:6px 0 0 0; opacity:.85; font-size:13px;">Generated on ${new Date().toLocaleString()}</p>
+  <div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:${palette.black}; padding:24px;">
+    <div style="max-width:640px; margin:0 auto; background:${palette.surface}; border-radius:14px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.5); border:1px solid ${palette.border};">
+      <div style="background:linear-gradient(135deg,${palette.yellow},${palette.red}); color:${palette.black}; padding:28px 32px;">
+        <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:0.02em;">HOLLYWOOD CAR WASH — Image Analysis</h1>
+        <p style="margin:6px 0 0 0; opacity:.78; font-size:13px;">Generated on ${new Date().toLocaleString()}</p>
       </div>
       <div style="padding:28px 32px;">
-        <h2 style="font-size:15px; text-transform:uppercase; letter-spacing:.05em; color:#4f46e5; margin:0 0 8px;">Description</h2>
-        <p style="margin:0 0 24px; font-size:15px; color:#1f2937; line-height:1.55;">${escapeHtml(description) || '<em>None</em>'}</p>
+        <h2 style="font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:${palette.yellow}; margin:0 0 8px;">Description</h2>
+        <p style="margin:0 0 24px; font-size:15px; color:${palette.white}; line-height:1.55;">${escapeHtml(description) || `<em style="color:${palette.whiteMuted};">None</em>`}</p>
 
-        <h2 style="font-size:15px; text-transform:uppercase; letter-spacing:.05em; color:#4f46e5; margin:0 0 8px;">Extracted Text</h2>
-        <pre style="white-space:pre-wrap; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:14px; font-size:14px; color:#111827; margin:0 0 24px;">${escapeHtml(text) || '<em style="color:#888;">No text detected.</em>'}</pre>
+        <h2 style="font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:${palette.yellow}; margin:0 0 8px;">Extracted Text</h2>
+        <pre style="white-space:pre-wrap; background:${palette.black}; border:1px solid ${palette.border}; border-radius:8px; padding:14px; font-size:14px; color:${palette.white}; margin:0 0 24px;">${escapeHtml(text) || `<em style="color:${palette.whiteMuted};">No text detected.</em>`}</pre>
 
-        <h2 style="font-size:15px; text-transform:uppercase; letter-spacing:.05em; color:#4f46e5; margin:0 0 8px;">Detected Objects</h2>
-        <div style="font-size:14px; color:#1f2937;">${objectsHtml}</div>
+        <h2 style="font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:${palette.yellow}; margin:0 0 8px;">Detected Objects</h2>
+        <div style="font-size:14px; color:${palette.white};">${objectsHtml}</div>
 
-        <hr style="border:none; border-top:1px solid #e5e7eb; margin:28px 0;" />
-        <p style="font-size:12px; color:#6b7280; margin:0;">The analyzed image is attached to this email.</p>
+        <hr style="border:none; border-top:1px solid ${palette.border}; margin:28px 0;" />
+        <p style="font-size:12px; color:${palette.whiteMuted}; margin:0;">The analyzed image is attached to this email.</p>
       </div>
     </div>
   </div>`;

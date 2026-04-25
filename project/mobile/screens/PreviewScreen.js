@@ -73,7 +73,7 @@ export default function PreviewScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.md, paddingBottom: spacing.xl },
-  image: { width: '100%', aspectRatio: 1, borderRadius: radius.md, backgroundColor: '#eee' },
+  image: { width: '100%', aspectRatio: 1, borderRadius: radius.md, backgroundColor: colors.imagePlaceholder },
   empty: { textAlign: 'center', color: colors.textMuted, padding: spacing.lg },
   info: { color: colors.text, fontSize: 15, lineHeight: 22 },
   bold: { fontWeight: '700' },

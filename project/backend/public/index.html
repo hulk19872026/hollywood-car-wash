@@ -7,17 +7,22 @@
 <title>Image Analyzer</title>
 <style>
   :root {
-    --bg1: #0A0A0A;
-    --bg2: #0A0A0A;
-    --fg: #ffffff;
-    --muted: rgba(255,255,255,0.78);
-    --card: rgba(255,255,255,0.06);
-    --card-border: rgba(250,204,21,0.25);
-    --chip: rgba(0,0,0,0.28);
-    --danger: #DC2626;
-    --success: #22c55e;
-    --primary: #FACC15;
-    --primary-ink: #0A0A0A;
+    /* Hollywood Car Wash palette — black, yellow, red only (white permitted for body text). */
+    --black: #000000;
+    --surface: #0A0A0A;
+    --primary: #FFD700;       /* yellow */
+    --primary-soft: #FFEA70;  /* yellow hover/highlight */
+    --danger: #FF0000;        /* red */
+    --danger-soft: #FF4D4D;   /* red hover/error text */
+    --fg: #FFFFFF;
+    --primary-ink: var(--black);
+
+    /* Aliases used throughout the stylesheet */
+    --bg1: var(--black);
+    --muted: rgba(255,255,255,0.72);
+    --card: rgba(255,255,255,0.04);
+    --card-border: rgba(255,215,0,0.30);
+    --chip: rgba(255,215,0,0.12);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -85,7 +90,7 @@
   .btn.primary {
     background: var(--primary); color: var(--primary-ink); border-color: transparent;
   }
-  .btn.primary:hover { background: #FFD60A; }
+  .btn.primary:hover { background: var(--primary-soft); }
   .btn[disabled] { opacity: .5; cursor: not-allowed; transform: none; }
 
   .preview {
@@ -132,12 +137,12 @@
     margin-top: 12px; min-height: 22px; font-size: 14px;
     display: flex; align-items: center; gap: 8px;
   }
-  .status.error { color: #ffd2d2; }
-  .status.ok { color: #c8ffd8; }
+  .status.error { color: var(--danger-soft); }
+  .status.ok { color: var(--primary); }
   .spinner {
     width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.4);
-    border-top-color: #fff;
+    border: 2px solid rgba(255,215,0,0.35);
+    border-top-color: var(--primary);
     animation: spin .8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }

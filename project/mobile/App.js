@@ -16,7 +16,7 @@ const navTheme = {
   colors: {
     primary: colors.primary,
     background: colors.background,
-    card: '#ffffff',
+    card: colors.card,
     text: colors.text,
     border: colors.border,
     notification: colors.accent,
@@ -31,7 +31,7 @@ export default function App() {
         <Stack.Navigator
           screenOptions={{
             headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
+            headerTintColor: colors.onPrimary,
             headerTitleStyle: { fontWeight: '700' },
             contentStyle: { backgroundColor: colors.background },
           }}

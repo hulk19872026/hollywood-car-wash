@@ -23,6 +23,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 28,
   },
   inner: {},
-  title: { color: '#fff', fontSize: 24, fontWeight: '800', letterSpacing: -0.3 },
-  subtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 4 },
+  title: { color: colors.onPrimary, fontSize: 24, fontWeight: '800', letterSpacing: -0.3 },
+  subtitle: { color: colors.onPrimaryMuted, fontSize: 14, marginTop: 4 },
 });
