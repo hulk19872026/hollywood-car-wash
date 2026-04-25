@@ -7,8 +7,8 @@ function list(_req, res) {
 function get(req, res) {
   const rec = historyStore.get(req.params.id);
   if (!rec) return res.status(404).json({ error: 'Not found' });
-  const { imagePath: _ignored, ...safe } = rec;
-  res.json(safe);
+  const { imagePaths: _ignored, ...safe } = rec;
+  res.json({ ...safe, imageCount: Array.isArray(rec.imagePaths) ? rec.imagePaths.length : 0 });
 }
 
 module.exports = { list, get };

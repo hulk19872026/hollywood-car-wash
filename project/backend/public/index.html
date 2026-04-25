@@ -4,10 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#0A0A0A" />
-<title>Image Analyzer</title>
+<title>Hollywood Oil Change</title>
 <style>
   :root {
-    /* Hollywood Car Wash palette — black, yellow, red only (white permitted for body text). */
+    /* Hollywood Oil Change palette — black, yellow, red only (white permitted for body text). */
     --black: #000000;
     --surface: #0A0A0A;
     --primary: #FFD700;       /* yellow */
@@ -17,7 +17,6 @@
     --fg: #FFFFFF;
     --primary-ink: var(--black);
 
-    /* Aliases used throughout the stylesheet */
     --bg1: var(--black);
     --muted: rgba(255,255,255,0.72);
     --card: rgba(255,255,255,0.04);
@@ -39,40 +38,98 @@
   main {
     width: 100%; max-width: 640px;
     display: flex; flex-direction: column; gap: 20px;
+    min-width: 0;
   }
   header { text-align: center; padding: 8px 0 4px; }
-  header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+  header h1 {
+    margin: 0;
+    font-size: clamp(26px, 7vw, 36px);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--primary), var(--danger));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
   header p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
 
   .card {
     background: var(--card);
     border: 1px solid var(--card-border);
     border-radius: 18px;
-    padding: 22px 22px;
+    padding: 22px;
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   }
 
-  .capture {
-    display: flex; flex-direction: column; align-items: center; gap: 16px;
-    padding: 30px 20px;
+  .capture-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px; gap: 12px; flex-wrap: wrap;
   }
-  .camera-btn {
-    appearance: none; border: 0; cursor: pointer;
-    width: 140px; height: 140px; border-radius: 50%;
+  .capture-header h2 {
+    margin: 0; font-size: 14px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--primary);
+  }
+  .photo-counter {
+    font-size: 13px; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .photo-counter strong { color: var(--primary); }
+
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  @media (min-width: 640px) {
+    .photo-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+  .photo-slot {
+    appearance: none; cursor: pointer;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    border: 2px dashed var(--card-border);
+    background: rgba(0,0,0,0.35);
+    color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    font-size: 13px;
+    min-height: 44px;
+    transition: border-color .2s ease, background .2s ease, transform .08s ease;
+    position: relative; overflow: hidden;
+    text-align: center;
+  }
+  .photo-slot:hover { border-color: var(--primary); color: var(--fg); }
+  .photo-slot:active { transform: scale(0.98); }
+  .photo-slot[data-filled="true"] {
+    border-style: solid;
+    border-color: var(--primary);
+    padding: 0;
+  }
+  .photo-slot img {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+  }
+  .slot-index {
+    position: absolute; top: 8px; left: 8px;
     background: var(--primary); color: var(--primary-ink);
+    width: 24px; height: 24px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 -4px 0 rgba(0,0,0,0.1);
-    transition: transform .08s ease, box-shadow .2s ease;
+    font-size: 12px; font-weight: 800;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
   }
-  .camera-btn:hover { transform: translateY(-2px); }
-  .camera-btn:active { transform: translateY(1px); }
-  .camera-btn svg { width: 72px; height: 72px; }
-  .capture-label { font-size: 15px; color: var(--muted); text-align: center; }
+  .slot-icon {
+    width: 36px; height: 36px;
+    color: var(--primary);
+  }
+  .slot-icon svg { width: 100%; height: 100%; }
 
   .secondary-actions {
     display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    margin-top: 16px;
   }
   .btn {
     appearance: none; cursor: pointer;
@@ -83,28 +140,26 @@
     font-size: 14px; font-weight: 600;
     min-height: 44px; min-width: 44px;
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    transition: background .15s ease, transform .08s ease;
+    transition: background .15s ease, transform .08s ease, opacity .15s ease;
   }
   .btn:hover { background: rgba(255,255,255,0.20); }
   .btn:active { transform: translateY(1px); }
   .btn.primary {
     background: var(--primary); color: var(--primary-ink); border-color: transparent;
+    font-weight: 700;
   }
   .btn.primary:hover { background: var(--primary-soft); }
-  .btn[disabled] { opacity: .5; cursor: not-allowed; transform: none; }
+  .btn[disabled] { opacity: .4; cursor: not-allowed; transform: none; }
+  .btn[disabled]:hover { background: var(--primary); }
 
-  .preview {
-    display: flex; flex-direction: column; gap: 14px;
+  .actions-row {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px;
+    justify-content: center;
   }
-  .preview img {
-    width: 100%; max-height: 420px; object-fit: contain;
-    background: rgba(0,0,0,0.35); border-radius: 12px;
-  }
-  .preview .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
   .result h2 {
     font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--muted); margin: 18px 0 8px;
+    color: var(--primary); margin: 18px 0 8px;
   }
   .result h2:first-child { margin-top: 0; }
   .result p, .result pre {
@@ -112,16 +167,17 @@
     white-space: pre-wrap; word-wrap: break-word;
   }
   .result pre {
-    background: var(--chip); padding: 12px 14px; border-radius: 10px;
+    background: rgba(0,0,0,0.35); padding: 12px 14px; border-radius: 10px;
     font-size: 13px; font-family: SFMono-Regular, Menlo, Consolas, monospace;
   }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip {
-    background: var(--chip); padding: 6px 12px; border-radius: 999px;
-    font-size: 13px;
+    background: var(--chip); border: 1px solid var(--card-border);
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 13px; color: var(--primary);
   }
 
-  .email-row { display: flex; gap: 10px; margin-top: 18px; }
+  .email-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
   .email-row input {
     flex: 1; min-width: 0;
     background: rgba(0,0,0,0.25); color: var(--fg);
@@ -131,7 +187,7 @@
     outline: none;
   }
   .email-row input::placeholder { color: rgba(255,255,255,0.55); }
-  .email-row input:focus { border-color: rgba(255,255,255,0.45); }
+  .email-row input:focus { border-color: var(--primary); }
 
   .status {
     margin-top: 12px; min-height: 22px; font-size: 14px;
@@ -148,9 +204,10 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   footer {
-    text-align: center; color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 4px;
+    text-align: center; color: rgba(255,255,255,0.55); font-size: 12px; margin-top: 4px;
   }
-  footer a { color: inherit; }
+  footer a { color: var(--primary); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 
   .hidden { display: none !important; }
 </style>
@@ -158,31 +215,31 @@
 <body>
   <main>
     <header>
-      <h1>📸 Image Analyzer</h1>
-      <p>Snap a photo or upload one — get an instant AI description, extracted text, and detected objects.</p>
+      <h1>Hollywood Oil Change</h1>
+      <p>Snap four photos of your vehicle for a quick AI inspection.</p>
     </header>
 
-    <section class="card capture" id="captureCard">
-      <button type="button" class="camera-btn" id="cameraBtn" aria-label="Take or upload a picture">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
-      </button>
-      <div class="capture-label">Tap the camera to take or upload a picture</div>
-      <input type="file" id="fileInput" accept="image/*" capture="environment" class="hidden" />
-      <div class="secondary-actions">
-        <button type="button" class="btn" id="uploadBtn">Upload from device</button>
+    <section class="card" id="captureCard">
+      <div class="capture-header">
+        <h2>Vehicle Photos</h2>
+        <div class="photo-counter"><strong id="photoCount">0</strong> / 4 photos</div>
       </div>
-    </section>
 
-    <section class="card preview hidden" id="previewCard">
-      <img id="previewImg" alt="Selected" />
-      <div class="row">
-        <button type="button" class="btn primary" id="analyzeBtn">Analyze photo</button>
-        <button type="button" class="btn" id="retakeBtn">Retake</button>
+      <div class="photo-grid" id="photoGrid" role="group" aria-label="Four required photos">
+        <!-- Slots are generated by JS -->
       </div>
-      <div class="status" id="analyzeStatus"></div>
+
+      <input type="file" id="fileInput" accept="image/*" capture="environment" class="hidden" />
+
+      <div class="secondary-actions">
+        <button type="button" class="btn" id="uploadBtn" aria-label="Upload from device instead of taking a photo">Upload from device</button>
+        <button type="button" class="btn" id="clearBtn" aria-label="Clear all photos">Clear all</button>
+      </div>
+
+      <div class="actions-row">
+        <button type="button" class="btn primary" id="analyzeBtn" disabled>Analyze 4 photos</button>
+      </div>
+      <div class="status" id="analyzeStatus" aria-live="polite"></div>
     </section>
 
     <section class="card result hidden" id="resultCard">
@@ -197,9 +254,9 @@
 
       <div class="email-row">
         <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" inputmode="email" />
-        <button type="button" class="btn primary" id="sendEmailBtn">Email me the result</button>
+        <button type="button" class="btn primary" id="sendEmailBtn">Email me the report</button>
       </div>
-      <div class="status" id="emailStatus"></div>
+      <div class="status" id="emailStatus" aria-live="polite"></div>
     </section>
 
     <footer>
@@ -208,63 +265,109 @@
   </main>
 
   <script>
+    const PHOTO_COUNT = 4;
     const $ = (id) => document.getElementById(id);
-    const captureCard = $('captureCard');
-    const previewCard = $('previewCard');
-    const resultCard  = $('resultCard');
-    const fileInput   = $('fileInput');
-    const cameraBtn   = $('cameraBtn');
-    const uploadBtn   = $('uploadBtn');
-    const previewImg  = $('previewImg');
-    const analyzeBtn  = $('analyzeBtn');
-    const retakeBtn   = $('retakeBtn');
+    const photoGrid    = $('photoGrid');
+    const photoCountEl = $('photoCount');
+    const fileInput    = $('fileInput');
+    const uploadBtn    = $('uploadBtn');
+    const clearBtn     = $('clearBtn');
+    const analyzeBtn   = $('analyzeBtn');
     const analyzeStatus = $('analyzeStatus');
-    const emailStatus = $('emailStatus');
+    const resultCard   = $('resultCard');
+    const emailInput   = $('emailInput');
     const sendEmailBtn = $('sendEmailBtn');
-    const emailInput  = $('emailInput');
+    const emailStatus  = $('emailStatus');
 
-    let currentFile = null;
-    let lastResult  = null;
+    /** @type {Array<File|null>} */
+    const currentFiles = Array(PHOTO_COUNT).fill(null);
+    /** Index of the slot the next file picked goes into. */
+    let activeSlot = 0;
+    let lastResult = null;
 
-    function openCamera() {
+    const cameraIconSvg = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>`;
+
+    function renderSlots() {
+      photoGrid.innerHTML = '';
+      currentFiles.forEach((file, i) => {
+        const slot = document.createElement('button');
+        slot.type = 'button';
+        slot.className = 'photo-slot';
+        slot.dataset.filled = file ? 'true' : 'false';
+        slot.setAttribute('aria-label', file ? `Photo ${i + 1} (tap to retake)` : `Add photo ${i + 1}`);
+        slot.addEventListener('click', () => openPickerForSlot(i));
+
+        const indexBadge = document.createElement('span');
+        indexBadge.className = 'slot-index';
+        indexBadge.textContent = String(i + 1);
+        slot.appendChild(indexBadge);
+
+        if (file) {
+          const img = document.createElement('img');
+          img.alt = `Photo ${i + 1}`;
+          img.src = URL.createObjectURL(file);
+          img.onload = () => URL.revokeObjectURL(img.src);
+          slot.appendChild(img);
+        } else {
+          const icon = document.createElement('span');
+          icon.className = 'slot-icon';
+          icon.innerHTML = cameraIconSvg;
+          slot.appendChild(icon);
+          const label = document.createElement('span');
+          label.textContent = 'Add photo';
+          slot.appendChild(label);
+        }
+        photoGrid.appendChild(slot);
+      });
+      const filledCount = currentFiles.filter(Boolean).length;
+      photoCountEl.textContent = String(filledCount);
+      analyzeBtn.disabled = filledCount !== PHOTO_COUNT;
+    }
+
+    function firstEmptySlot() {
+      const idx = currentFiles.findIndex((f) => !f);
+      return idx === -1 ? 0 : idx;
+    }
+
+    function openPickerForSlot(i) {
+      activeSlot = i;
       fileInput.setAttribute('capture', 'environment');
+      fileInput.value = '';
       fileInput.click();
     }
-    function openPicker() {
+
+    function openPickerForUpload() {
+      activeSlot = firstEmptySlot();
       fileInput.removeAttribute('capture');
+      fileInput.value = '';
       fileInput.click();
     }
-    cameraBtn.addEventListener('click', openCamera);
-    uploadBtn.addEventListener('click', openPicker);
+
+    uploadBtn.addEventListener('click', openPickerForUpload);
+    clearBtn.addEventListener('click', () => {
+      for (let i = 0; i < PHOTO_COUNT; i++) currentFiles[i] = null;
+      lastResult = null;
+      resultCard.classList.add('hidden');
+      analyzeStatus.textContent = '';
+      emailStatus.textContent = '';
+      renderSlots();
+    });
 
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
-      currentFile = file;
-      previewImg.src = URL.createObjectURL(file);
-      previewCard.classList.remove('hidden');
-      resultCard.classList.add('hidden');
-      analyzeStatus.textContent = '';
-      emailStatus.textContent = '';
-      previewCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-
-    retakeBtn.addEventListener('click', () => {
-      currentFile = null;
-      lastResult = null;
-      fileInput.value = '';
-      previewImg.removeAttribute('src');
-      previewCard.classList.add('hidden');
-      resultCard.classList.add('hidden');
-      analyzeStatus.textContent = '';
-      emailStatus.textContent = '';
-      captureCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      currentFiles[activeSlot] = file;
+      renderSlots();
     });
 
     function setStatus(el, text, type) {
       el.className = 'status' + (type ? ' ' + type : '');
       if (type === 'loading') {
-        el.innerHTML = '<span class="spinner"></span><span></span>';
+        el.innerHTML = '<span class="spinner" aria-hidden="true"></span><span></span>';
         el.querySelector('span:last-child').textContent = text;
       } else {
         el.textContent = text;
@@ -272,12 +375,13 @@
     }
 
     analyzeBtn.addEventListener('click', async () => {
-      if (!currentFile) return;
-      analyzeBtn.disabled = true; retakeBtn.disabled = true;
-      setStatus(analyzeStatus, 'Analyzing image…', 'loading');
+      const filled = currentFiles.filter(Boolean);
+      if (filled.length !== PHOTO_COUNT) return;
+      analyzeBtn.disabled = true;
+      setStatus(analyzeStatus, 'Analyzing 4 photos…', 'loading');
       try {
         const fd = new FormData();
-        fd.append('image', currentFile);
+        filled.forEach((f) => fd.append('images', f));
         const r = await fetch('/analyze', { method: 'POST', body: fd });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || data.detail || ('HTTP ' + r.status));
@@ -287,7 +391,7 @@
       } catch (err) {
         setStatus(analyzeStatus, 'Error: ' + err.message, 'error');
       } finally {
-        analyzeBtn.disabled = false; retakeBtn.disabled = false;
+        analyzeBtn.disabled = currentFiles.filter(Boolean).length !== PHOTO_COUNT;
       }
     });
 
@@ -344,6 +448,9 @@
         sendEmailBtn.disabled = false;
       }
     });
+
+    // Initial render
+    renderSlots();
   </script>
 </body>
 </html>

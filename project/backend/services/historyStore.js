@@ -26,7 +26,7 @@ function list() {
     description: r.description,
     text: r.text,
     objects: r.objects,
-    hasImage: Boolean(r.imagePath),
+    imageCount: Array.isArray(r.imagePaths) ? r.imagePaths.length : 0,
   }));
 }
 

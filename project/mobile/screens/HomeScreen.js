@@ -75,7 +75,7 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <Header title="📸 Image Analyzer" subtitle="Snap or upload — get description, text & objects" />
+      <Header title="Hollywood Oil Change" subtitle="Four-photo AI inspection for your vehicle" />
 
       <ScrollView
         contentContainerStyle={styles.scroll}

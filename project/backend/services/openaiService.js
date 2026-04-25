@@ -1,13 +1,12 @@
 /**
  * Image analysis service.
  *
- * NOTE: filename is kept as `openaiService.js` so existing imports continue to
- * work; the implementation now uses the Anthropic Claude API (vision) instead
- * of OpenAI. Function signature, return shape, and error semantics are
- * preserved so analyzeController.js does not need to change.
+ * Filename kept as `openaiService.js` for backwards-compat with existing
+ * imports; implementation uses the Anthropic Claude API (vision).
  *
- * Sends the image (base64) to Claude with a vision-capable model and asks for
- * a strict JSON response containing:
+ * The Hollywood Oil Change app requires the user to submit four photos in a
+ * single batch. analyzeImage() takes an array of files and returns a single
+ * consolidated analysis:
  *   { description: string, text: string, objects: string[] }
  */
 const fs = require('fs');
@@ -15,16 +14,15 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-7';
 
-const SYSTEM_PROMPT = `You are an image analysis assistant. For every image the user sends, respond ONLY with a valid JSON object matching EXACTLY this schema and nothing else (no markdown, no code fences, no commentary):
+const SYSTEM_PROMPT = `You are an image analysis assistant for Hollywood Oil Change, an automotive oil-change service. The user has provided four photos of a single vehicle (typically four angles or details relevant to an oil change inspection). Analyze all four photos together and respond ONLY with a valid JSON object matching EXACTLY this schema and nothing else (no markdown, no code fences, no commentary):
 {
-  "description": "a clear 2-4 sentence natural-language description of what is in the image",
-  "text": "all readable text extracted from the image via OCR, concatenated with newlines, or empty string if none",
-  "objects": ["list", "of", "distinct", "notable", "objects", "visible"]
+  "description": "a clear 2-4 sentence natural-language summary of what is shown across all four photos — vehicle make/model if identifiable, visible condition, anything an oil-change technician would want to note",
+  "text": "all readable text extracted from the images via OCR (license plates, gauge readings, dipstick labels, decals), concatenated with newlines, or empty string if none",
+  "objects": ["list", "of", "distinct", "notable", "objects", "visible", "across", "the", "photos"]
 }`;
 
 function safeParseJson(raw) {
   if (!raw) return null;
-  // strip possible ```json fences
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/```\s*$/i, '')
@@ -32,7 +30,6 @@ function safeParseJson(raw) {
   try {
     return JSON.parse(cleaned);
   } catch {
-    // fallback — extract first {...} block
     const match = cleaned.match(/\{[\s\S]*\}/);
     if (match) {
       try { return JSON.parse(match[0]); } catch { return null; }
@@ -41,9 +38,6 @@ function safeParseJson(raw) {
   }
 }
 
-// Re-shape Anthropic SDK errors into the axios-style envelope that
-// analyzeController.js inspects (`err.response.data.error.message`). This keeps
-// the existing 502 branch working without touching the controller.
 function wrapAnthropicError(err) {
   if (err && err instanceof Anthropic.APIError) {
     const message =
@@ -61,15 +55,30 @@ function wrapAnthropicError(err) {
   return err;
 }
 
-async function analyzeImage(filePath, mimeType = 'image/jpeg') {
+/**
+ * @param {Array<{filePath: string, mimeType?: string}>} files — exactly 4 image files
+ */
+async function analyzeImage(files) {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY is not configured');
+  }
+  if (!Array.isArray(files) || files.length === 0) {
+    throw new Error('analyzeImage requires a non-empty array of files');
   }
 
   const client = new Anthropic();
 
-  const imageBuffer = fs.readFileSync(filePath);
-  const base64 = imageBuffer.toString('base64');
+  const imageBlocks = files.map(({ filePath, mimeType = 'image/jpeg' }) => {
+    const buffer = fs.readFileSync(filePath);
+    return {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: mimeType,
+        data: buffer.toString('base64'),
+      },
+    };
+  });
 
   let response;
   try {
@@ -81,11 +90,11 @@ async function analyzeImage(filePath, mimeType = 'image/jpeg') {
         {
           role: 'user',
           content: [
+            ...imageBlocks,
             {
-              type: 'image',
-              source: { type: 'base64', media_type: mimeType, data: base64 },
+              type: 'text',
+              text: `Analyze these ${files.length} photos together and return JSON as instructed.`,
             },
-            { type: 'text', text: 'Analyze this image and return JSON as instructed.' },
           ],
         },
       ],
@@ -94,7 +103,6 @@ async function analyzeImage(filePath, mimeType = 'image/jpeg') {
     throw wrapAnthropicError(err);
   }
 
-  // response.content is a list of ContentBlock; pull text from the first text block.
   const raw = (response.content || [])
     .filter((b) => b.type === 'text')
     .map((b) => b.text)

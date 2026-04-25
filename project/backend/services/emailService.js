@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-// Hollywood Car Wash palette — black, yellow, red only (white permitted for body text).
+// Hollywood Oil Change palette — black, yellow, red only (white permitted for body text).
 const palette = {
   black: '#000000',
   surface: '#0A0A0A',
@@ -36,7 +36,7 @@ function buildHtml({ description, text, objects }) {
   <div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:${palette.black}; padding:24px;">
     <div style="max-width:640px; margin:0 auto; background:${palette.surface}; border-radius:14px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.5); border:1px solid ${palette.border};">
       <div style="background:linear-gradient(135deg,${palette.yellow},${palette.red}); color:${palette.black}; padding:28px 32px;">
-        <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:0.02em;">HOLLYWOOD CAR WASH — Image Analysis</h1>
+        <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:0.02em;">HOLLYWOOD OIL CHANGE — Inspection Report</h1>
         <p style="margin:6px 0 0 0; opacity:.78; font-size:13px;">Generated on ${new Date().toLocaleString()}</p>
       </div>
       <div style="padding:28px 32px;">
@@ -50,7 +50,7 @@ function buildHtml({ description, text, objects }) {
         <div style="font-size:14px; color:${palette.white};">${objectsHtml}</div>
 
         <hr style="border:none; border-top:1px solid ${palette.border}; margin:28px 0;" />
-        <p style="font-size:12px; color:${palette.whiteMuted}; margin:0;">The analyzed image is attached to this email.</p>
+        <p style="font-size:12px; color:${palette.whiteMuted}; margin:0;">The four analyzed photos are attached to this email.</p>
       </div>
     </div>
   </div>`;
@@ -71,19 +71,23 @@ function escapeHtml(s) {
  * @param {string} opts.description
  * @param {string} opts.text
  * @param {string[]} opts.objects
- * @param {string} [opts.imagePath] — absolute path to attach
+ * @param {string[]} [opts.imagePaths] — absolute paths to attach (one per photo)
  */
-async function sendResultsEmail({ to, description, text, objects, imagePath }) {
+async function sendResultsEmail({ to, description, text, objects, imagePaths }) {
   const transporter = createTransporter();
 
+  const paths = Array.isArray(imagePaths) ? imagePaths : [];
+  const attachments = paths.map((p, i) => ({
+    filename: `photo-${i + 1}.jpg`,
+    path: p,
+  }));
+
   const mailOptions = {
-    from: `"Image Analyzer" <${process.env.EMAIL_USER}>`,
+    from: `"Hollywood Oil Change" <${process.env.EMAIL_USER}>`,
     to,
-    subject: 'Image Analysis Results',
+    subject: 'Hollywood Oil Change — Inspection Report',
     html: buildHtml({ description, text, objects }),
-    attachments: imagePath
-      ? [{ filename: 'analyzed-image.jpg', path: imagePath }]
-      : [],
+    attachments,
   };
 
   const info = await transporter.sendMail(mailOptions);
