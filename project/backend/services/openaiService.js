@@ -1,14 +1,19 @@
 /**
- * OpenAI Vision service.
- * Sends the image (base64) to the Chat Completions API with a vision-capable
- * model and asks for a strict JSON response containing:
+ * Image analysis service.
+ *
+ * NOTE: filename is kept as `openaiService.js` so existing imports continue to
+ * work; the implementation now uses the Anthropic Claude API (vision) instead
+ * of OpenAI. Function signature, return shape, and error semantics are
+ * preserved so analyzeController.js does not need to change.
+ *
+ * Sends the image (base64) to Claude with a vision-capable model and asks for
+ * a strict JSON response containing:
  *   { description: string, text: string, objects: string[] }
  */
 const fs = require('fs');
-const axios = require('axios');
+const Anthropic = require('@anthropic-ai/sdk');
 
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-7';
 
 const SYSTEM_PROMPT = `You are an image analysis assistant. For every image the user sends, respond ONLY with a valid JSON object matching EXACTLY this schema and nothing else (no markdown, no code fences, no commentary):
 {
@@ -36,41 +41,64 @@ function safeParseJson(raw) {
   }
 }
 
-async function analyzeImage(filePath, mimeType = 'image/jpeg') {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not configured');
+// Re-shape Anthropic SDK errors into the axios-style envelope that
+// analyzeController.js inspects (`err.response.data.error.message`). This keeps
+// the existing 502 branch working without touching the controller.
+function wrapAnthropicError(err) {
+  if (err && err instanceof Anthropic.APIError) {
+    const message =
+      err.error?.error?.message ||
+      err.error?.message ||
+      err.message ||
+      'Anthropic API error';
+    const wrapped = new Error(message);
+    wrapped.response = {
+      status: err.status,
+      data: { error: { message, type: err.error?.error?.type || err.name } },
+    };
+    return wrapped;
   }
+  return err;
+}
+
+async function analyzeImage(filePath, mimeType = 'image/jpeg') {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY is not configured');
+  }
+
+  const client = new Anthropic();
 
   const imageBuffer = fs.readFileSync(filePath);
   const base64 = imageBuffer.toString('base64');
-  const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  const payload = {
-    model: DEFAULT_MODEL,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Analyze this image and return JSON as instructed.' },
-          { type: 'image_url', image_url: { url: dataUrl } },
-        ],
-      },
-    ],
-    max_tokens: 800,
-    temperature: 0.2,
-    response_format: { type: 'json_object' },
-  };
+  let response;
+  try {
+    response = await client.messages.create({
+      model: DEFAULT_MODEL,
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mimeType, data: base64 },
+            },
+            { type: 'text', text: 'Analyze this image and return JSON as instructed.' },
+          ],
+        },
+      ],
+    });
+  } catch (err) {
+    throw wrapAnthropicError(err);
+  }
 
-  const { data } = await axios.post(OPENAI_URL, payload, {
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    timeout: 60_000,
-  });
-
-  const raw = data?.choices?.[0]?.message?.content || '';
+  // response.content is a list of ContentBlock; pull text from the first text block.
+  const raw = (response.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n');
   const parsed = safeParseJson(raw);
 
   if (!parsed) {
