@@ -266,6 +266,8 @@
 
   <script>
     const PHOTO_COUNT = 4;
+    const MAX_DIM = 1568;       // long-edge px — Claude's optimal vision input size
+    const JPEG_QUALITY = 0.85;  // ~70% smaller than raw camera JPEGs at near-equal quality
     const $ = (id) => document.getElementById(id);
     const photoGrid    = $('photoGrid');
     const photoCountEl = $('photoCount');
@@ -374,17 +376,65 @@
       }
     }
 
+    // Downscale a phone photo to <= MAX_DIM on the long edge and re-encode
+    // as JPEG. Modern camera photos are often 3-8 MB each, well above
+    // Anthropic's 5 MB-per-image vision limit and inflating the request body
+    // past 30 MB once base64-encoded. After this pass each image is well
+    // under 1 MB.
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+        img.src = url;
+      });
+    }
+    async function downscaleImage(file) {
+      // If it's already small, skip the work.
+      if (file.size < 900_000) return file;
+      try {
+        const img = await loadImage(file);
+        const longEdge = Math.max(img.naturalWidth, img.naturalHeight);
+        if (longEdge <= MAX_DIM && file.size < 1_500_000) return file;
+        const ratio = Math.min(1, MAX_DIM / longEdge);
+        const w = Math.max(1, Math.round(img.naturalWidth * ratio));
+        const h = Math.max(1, Math.round(img.naturalHeight * ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
+        if (!blob) return file; // fall back to original on encode failure
+        const baseName = (file.name || 'photo').replace(/\.[^.]+$/, '');
+        return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
+      } catch {
+        return file; // HEIC or other unsupported formats — let the server try
+      }
+    }
+    function errorFromResponse(data, status) {
+      // Prefer the specific upstream detail over the generic wrapper.
+      return data?.detail || data?.error || ('HTTP ' + status);
+    }
+
     analyzeBtn.addEventListener('click', async () => {
       const filled = currentFiles.filter(Boolean);
       if (filled.length !== PHOTO_COUNT) return;
       analyzeBtn.disabled = true;
-      setStatus(analyzeStatus, 'Analyzing 4 photos…', 'loading');
+      setStatus(analyzeStatus, 'Optimizing photos…', 'loading');
       try {
+        const compressed = await Promise.all(filled.map(downscaleImage));
+        // Stash the compressed copies so the email step reuses them.
+        compressed.forEach((f, i) => {
+          const idx = currentFiles.indexOf(filled[i]);
+          if (idx !== -1) currentFiles[idx] = f;
+        });
+        setStatus(analyzeStatus, 'Analyzing 4 photos…', 'loading');
         const fd = new FormData();
-        filled.forEach((f) => fd.append('images', f));
+        compressed.forEach((f) => fd.append('images', f));
         const r = await fetch('/analyze', { method: 'POST', body: fd });
         const data = await r.json();
-        if (!r.ok) throw new Error(data.error || data.detail || ('HTTP ' + r.status));
+        if (!r.ok) throw new Error(errorFromResponse(data, r.status));
         lastResult = data;
         renderResult(data);
         setStatus(analyzeStatus, 'Done.', 'ok');
@@ -443,7 +493,7 @@
 
         const r = await fetch('/send-email', { method: 'POST', body: fd });
         const data = await r.json();
-        if (!r.ok) throw new Error(data.error || data.detail || ('HTTP ' + r.status));
+        if (!r.ok) throw new Error(errorFromResponse(data, r.status));
         const count = data.attachmentCount;
         const suffix = typeof count === 'number' ? ` (${count} photo${count === 1 ? '' : 's'} attached)` : '';
         setStatus(emailStatus, 'Sent to ' + email + '.' + suffix, 'ok');
