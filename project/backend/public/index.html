@@ -27,8 +27,9 @@
     color: var(--fg);
     background: var(--bg1);
     min-height: 100vh;
-    padding: 24px 16px 40px;
+    padding: calc(24px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     display: flex; justify-content: center;
+    overflow-x: hidden;
   }
   main {
     width: 100%; max-width: 640px;
@@ -75,7 +76,8 @@
     color: var(--fg);
     padding: 11px 18px; border-radius: 12px;
     font-size: 14px; font-weight: 600;
-    display: inline-flex; align-items: center; gap: 8px;
+    min-height: 44px; min-width: 44px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     transition: background .15s ease, transform .08s ease;
   }
   .btn:hover { background: rgba(255,255,255,0.20); }
@@ -119,7 +121,8 @@
     flex: 1; min-width: 0;
     background: rgba(0,0,0,0.25); color: var(--fg);
     border: 1px solid var(--card-border); border-radius: 12px;
-    padding: 11px 14px; font-size: 15px;
+    padding: 11px 14px; font-size: 16px;
+    min-height: 44px;
     outline: none;
   }
   .email-row input::placeholder { color: rgba(255,255,255,0.55); }
@@ -188,7 +191,7 @@
       <div class="chips" id="resObjects"></div>
 
       <div class="email-row">
-        <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" />
+        <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" inputmode="email" />
         <button type="button" class="btn primary" id="sendEmailBtn">Email me the result</button>
       </div>
       <div class="status" id="emailStatus"></div>
