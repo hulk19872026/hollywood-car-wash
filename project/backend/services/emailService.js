@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+const fs = require('fs');
 
 // Hollywood Oil Change palette — black, yellow, red only (white permitted for body text).
 const palette = {
@@ -12,35 +12,12 @@ const palette = {
   border: 'rgba(255,215,0,0.30)',
 };
 
-function createTransporter() {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('EMAIL_USER and EMAIL_PASS must be configured');
-  }
-
-  // Allow full override via env (host/port/secure). When not provided, default
-  // to Gmail on port 587 with STARTTLS — more reliable on cloud providers
-  // (Railway, Render, Fly) than the legacy SMTPS port 465 used by the
-  // `service: 'gmail'` shorthand, which often hits connection timeouts.
-  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.EMAIL_PORT || '587', 10);
-  const secure = process.env.EMAIL_SECURE
-    ? process.env.EMAIL_SECURE === 'true'
-    : port === 465;
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    // Generous timeouts — cloud egress to SMTP can be slow on first connect.
-    connectionTimeout: 30_000,
-    greetingTimeout: 30_000,
-    socketTimeout: 60_000,
-  });
-}
+const RESEND_API_URL = 'https://api.resend.com/emails';
+// Resend's onboarding domain works without DNS verification but only delivers
+// to the email address used to register the Resend account. For real
+// production use, verify a domain in the Resend dashboard and set RESEND_FROM
+// to e.g. "Hollywood Oil Change <reports@yourdomain.com>".
+const DEFAULT_FROM = 'Hollywood Oil Change <onboarding@resend.dev>';
 
 function buildHtml({ description, text, objects }) {
   const objectsHtml = (objects || []).length
@@ -83,32 +60,63 @@ function escapeHtml(s) {
 }
 
 /**
+ * Send the inspection report via the Resend HTTPS API.
+ *
+ * Resend goes over standard HTTPS, which is reachable from Railway
+ * (unlike outbound SMTP, which Railway tends to block).
+ *
+ * Required env: RESEND_API_KEY
+ * Optional env: RESEND_FROM (defaults to the Resend onboarding sender —
+ *   only delivers to the email address used to sign up for Resend).
+ *
  * @param {object} opts
  * @param {string} opts.to — recipient email
  * @param {string} opts.description
  * @param {string} opts.text
  * @param {string[]} opts.objects
- * @param {string[]} [opts.imagePaths] — absolute paths to attach (one per photo)
+ * @param {string[]} [opts.imagePaths] — absolute paths to attach
  */
 async function sendResultsEmail({ to, description, text, objects, imagePaths }) {
-  const transporter = createTransporter();
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not configured');
+  }
 
   const paths = Array.isArray(imagePaths) ? imagePaths : [];
   const attachments = paths.map((p, i) => ({
     filename: `photo-${i + 1}.jpg`,
-    path: p,
+    content: fs.readFileSync(p).toString('base64'),
   }));
 
-  const mailOptions = {
-    from: `"Hollywood Oil Change" <${process.env.EMAIL_USER}>`,
-    to,
+  const payload = {
+    from: process.env.RESEND_FROM || DEFAULT_FROM,
+    to: [to],
     subject: 'Hollywood Oil Change — Inspection Report',
     html: buildHtml({ description, text, objects }),
     attachments,
   };
 
-  const info = await transporter.sendMail(mailOptions);
-  return { messageId: info.messageId };
+  const res = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body?.message || body?.error?.message || JSON.stringify(body);
+    } catch {
+      try { detail = await res.text(); } catch { /* noop */ }
+    }
+    throw new Error(`Resend API error: ${detail}`);
+  }
+
+  const data = await res.json();
+  return { messageId: data.id };
 }
 
 module.exports = { sendResultsEmail };
