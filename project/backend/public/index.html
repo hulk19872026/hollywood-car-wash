@@ -126,6 +126,11 @@
     color: var(--primary);
   }
   .slot-icon svg { width: 100%; height: 100%; }
+  .slot-label {
+    font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--primary);
+    line-height: 1.2;
+  }
 
   .secondary-actions {
     display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
@@ -268,6 +273,12 @@
     const PHOTO_COUNT = 4;
     const MAX_DIM = 1568;       // long-edge px — Claude's optimal vision input size
     const JPEG_QUALITY = 0.85;  // ~70% smaller than raw camera JPEGs at near-equal quality
+    const PHOTO_LABELS = [
+      'Registration',
+      'Mileage on Dashboard',
+      'Engine',
+      'Undercarriage',
+    ];
     const $ = (id) => document.getElementById(id);
     const photoGrid    = $('photoGrid');
     const photoCountEl = $('photoCount');
@@ -300,7 +311,6 @@
         slot.type = 'button';
         slot.className = 'photo-slot';
         slot.dataset.filled = file ? 'true' : 'false';
-        slot.setAttribute('aria-label', file ? `Photo ${i + 1} (tap to retake)` : `Add photo ${i + 1}`);
         slot.addEventListener('click', () => openPickerForSlot(i));
 
         const indexBadge = document.createElement('span');
@@ -308,9 +318,12 @@
         indexBadge.textContent = String(i + 1);
         slot.appendChild(indexBadge);
 
+        const labelName = PHOTO_LABELS[i] || `Photo ${i + 1}`;
+        slot.setAttribute('aria-label', file ? `Photo ${i + 1}: ${labelName} (tap to retake)` : `Add ${labelName} photo`);
+
         if (file) {
           const img = document.createElement('img');
-          img.alt = `Photo ${i + 1}`;
+          img.alt = `${labelName} photo`;
           img.src = URL.createObjectURL(file);
           img.onload = () => URL.revokeObjectURL(img.src);
           slot.appendChild(img);
@@ -320,7 +333,8 @@
           icon.innerHTML = cameraIconSvg;
           slot.appendChild(icon);
           const label = document.createElement('span');
-          label.textContent = 'Add photo';
+          label.className = 'slot-label';
+          label.textContent = labelName;
           slot.appendChild(label);
         }
         photoGrid.appendChild(slot);
@@ -359,10 +373,16 @@
       renderSlots();
     });
 
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
-      currentFiles[activeSlot] = file;
+      const targetSlot = activeSlot;
+      // Show the raw file immediately so the slot doesn't sit empty while we
+      // process; swap in the stamped version when it's ready.
+      currentFiles[targetSlot] = file;
+      renderSlots();
+      const processed = await processPhoto(file, targetSlot);
+      currentFiles[targetSlot] = processed;
       renderSlots();
     });
 
@@ -376,11 +396,10 @@
       }
     }
 
-    // Downscale a phone photo to <= MAX_DIM on the long edge and re-encode
-    // as JPEG. Modern camera photos are often 3-8 MB each, well above
-    // Anthropic's 5 MB-per-image vision limit and inflating the request body
-    // past 30 MB once base64-encoded. After this pass each image is well
-    // under 1 MB.
+    // Process a captured/uploaded photo: downscale to <= MAX_DIM on the long
+    // edge, burn the slot label and capture timestamp into the pixels, and
+    // re-encode as JPEG. Burning into the pixels (vs EXIF or HTML overlay)
+    // means the labels survive every email client, screenshot, and download.
     function loadImage(file) {
       return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
@@ -390,13 +409,25 @@
         img.src = url;
       });
     }
-    async function downscaleImage(file) {
-      // If it's already small, skip the work.
-      if (file.size < 900_000) return file;
+    function formatTimestamp(d) {
+      const date = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      return `${date}  ${time}`;
+    }
+    function drawTextWithStroke(ctx, text, x, y, fontPx, align) {
+      ctx.font = `700 ${fontPx}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+      ctx.textAlign = align || 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.lineWidth = Math.max(2, Math.round(fontPx * 0.18));
+      ctx.strokeStyle = 'rgba(0,0,0,0.92)';
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText(text, x, y);
+    }
+    async function processPhoto(file, slotIndex) {
       try {
         const img = await loadImage(file);
         const longEdge = Math.max(img.naturalWidth, img.naturalHeight);
-        if (longEdge <= MAX_DIM && file.size < 1_500_000) return file;
         const ratio = Math.min(1, MAX_DIM / longEdge);
         const w = Math.max(1, Math.round(img.naturalWidth * ratio));
         const h = Math.max(1, Math.round(img.naturalHeight * ratio));
@@ -404,12 +435,44 @@
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
+
+        // Top label strip
+        const labelText = `PHOTO ${slotIndex + 1}: ${(PHOTO_LABELS[slotIndex] || '').toUpperCase()}`;
+        const stripH = Math.max(28, Math.round(h * 0.07));
+        const labelFont = Math.max(14, Math.round(stripH * 0.55));
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(0, 0, w, stripH);
+        drawTextWithStroke(
+          ctx, labelText,
+          Math.round(w * 0.025),
+          Math.round(stripH * 0.72),
+          labelFont, 'left',
+        );
+
+        // Bottom-right timestamp
+        const stamp = formatTimestamp(new Date());
+        const stampFont = Math.max(14, Math.round(h * 0.032));
+        const padX = Math.round(w * 0.025);
+        const padY = Math.round(h * 0.025);
+        ctx.font = `700 ${stampFont}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+        const stampW = ctx.measureText(stamp).width;
+        const stampH = stampFont * 1.4;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(w - stampW - padX * 2, h - stampH - padY, stampW + padX * 1.5, stampH);
+        drawTextWithStroke(
+          ctx, stamp,
+          w - padX,
+          h - padY - stampFont * 0.25,
+          stampFont, 'right',
+        );
+
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
-        if (!blob) return file; // fall back to original on encode failure
+        if (!blob) return file;
         const baseName = (file.name || 'photo').replace(/\.[^.]+$/, '');
-        return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
+        return new File([blob], `${baseName}-photo${slotIndex + 1}.jpg`, { type: 'image/jpeg' });
       } catch {
-        return file; // HEIC or other unsupported formats — let the server try
+        // HEIC or other formats canvas can't decode — let the server take the original.
+        return file;
       }
     }
     function errorFromResponse(data, status) {
@@ -421,17 +484,12 @@
       const filled = currentFiles.filter(Boolean);
       if (filled.length !== PHOTO_COUNT) return;
       analyzeBtn.disabled = true;
-      setStatus(analyzeStatus, 'Optimizing photos…', 'loading');
+      setStatus(analyzeStatus, 'Analyzing 4 photos…', 'loading');
       try {
-        const compressed = await Promise.all(filled.map(downscaleImage));
-        // Stash the compressed copies so the email step reuses them.
-        compressed.forEach((f, i) => {
-          const idx = currentFiles.indexOf(filled[i]);
-          if (idx !== -1) currentFiles[idx] = f;
-        });
-        setStatus(analyzeStatus, 'Analyzing 4 photos…', 'loading');
         const fd = new FormData();
-        compressed.forEach((f) => fd.append('images', f));
+        // currentFiles already hold processed (downscaled + stamped) copies,
+        // since processPhoto runs at selection time.
+        filled.forEach((f) => fd.append('images', f));
         const r = await fetch('/analyze', { method: 'POST', body: fd });
         const data = await r.json();
         if (!r.ok) throw new Error(errorFromResponse(data, r.status));
