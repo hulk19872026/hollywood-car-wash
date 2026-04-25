@@ -3,19 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<meta name="theme-color" content="#4f46e5" />
+<meta name="theme-color" content="#0A0A0A" />
 <title>Image Analyzer</title>
 <style>
   :root {
-    --bg1: #4f46e5;
-    --bg2: #9333ea;
+    --bg1: #0A0A0A;
+    --bg2: #0A0A0A;
     --fg: #ffffff;
     --muted: rgba(255,255,255,0.78);
-    --card: rgba(255,255,255,0.10);
-    --card-border: rgba(255,255,255,0.18);
+    --card: rgba(255,255,255,0.06);
+    --card-border: rgba(250,204,21,0.25);
     --chip: rgba(0,0,0,0.28);
-    --danger: #ef4444;
+    --danger: #DC2626;
     --success: #22c55e;
+    --primary: #FACC15;
+    --primary-ink: #0A0A0A;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -23,7 +25,7 @@
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--fg);
-    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    background: var(--bg1);
     min-height: 100vh;
     padding: 24px 16px 40px;
     display: flex; justify-content: center;
@@ -53,7 +55,7 @@
   .camera-btn {
     appearance: none; border: 0; cursor: pointer;
     width: 140px; height: 140px; border-radius: 50%;
-    background: rgba(255,255,255,0.95); color: var(--bg1);
+    background: var(--primary); color: var(--primary-ink);
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 -4px 0 rgba(0,0,0,0.1);
     transition: transform .08s ease, box-shadow .2s ease;
@@ -79,9 +81,9 @@
   .btn:hover { background: rgba(255,255,255,0.20); }
   .btn:active { transform: translateY(1px); }
   .btn.primary {
-    background: #ffffff; color: var(--bg1); border-color: transparent;
+    background: var(--primary); color: var(--primary-ink); border-color: transparent;
   }
-  .btn.primary:hover { background: #f2f2f2; }
+  .btn.primary:hover { background: #FFD60A; }
   .btn[disabled] { opacity: .5; cursor: not-allowed; transform: none; }
 
   .preview {
