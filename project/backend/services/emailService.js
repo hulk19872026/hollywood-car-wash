@@ -16,12 +16,29 @@ function createTransporter() {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('EMAIL_USER and EMAIL_PASS must be configured');
   }
+
+  // Allow full override via env (host/port/secure). When not provided, default
+  // to Gmail on port 587 with STARTTLS — more reliable on cloud providers
+  // (Railway, Render, Fly) than the legacy SMTPS port 465 used by the
+  // `service: 'gmail'` shorthand, which often hits connection timeouts.
+  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.EMAIL_PORT || '587', 10);
+  const secure = process.env.EMAIL_SECURE
+    ? process.env.EMAIL_SECURE === 'true'
+    : port === 465;
+
   return nodemailer.createTransport({
-    service: process.env.EMAIL_SERVICE || 'gmail',
+    host,
+    port,
+    secure,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    // Generous timeouts — cloud egress to SMTP can be slow on first connect.
+    connectionTimeout: 30_000,
+    greetingTimeout: 30_000,
+    socketTimeout: 60_000,
   });
 }
 
