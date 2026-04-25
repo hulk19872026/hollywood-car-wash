@@ -59,6 +59,18 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+function extFromMime(mime) {
+  if (!mime) return 'jpg';
+  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/heic' || mime === 'image/heif') return 'heic';
+  if (mime === 'image/webp') return 'webp';
+  if (mime === 'image/gif') return 'gif';
+  // Generic fallback for anything else (e.g. image/svg+xml -> svg)
+  const m = /^image\/([a-z0-9.+-]+)$/i.exec(mime);
+  return m ? m[1].split('+')[0] : 'jpg';
+}
+
 /**
  * Send the inspection report via the Resend HTTPS API.
  *
@@ -74,18 +86,23 @@ function escapeHtml(s) {
  * @param {string} opts.description
  * @param {string} opts.text
  * @param {string[]} opts.objects
- * @param {string[]} [opts.imagePaths] — absolute paths to attach
+ * @param {Array<{path: string, mimetype?: string}>} [opts.images] — files to attach
  */
-async function sendResultsEmail({ to, description, text, objects, imagePaths }) {
+async function sendResultsEmail({ to, description, text, objects, images }) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error('RESEND_API_KEY is not configured');
   }
 
-  const paths = Array.isArray(imagePaths) ? imagePaths : [];
-  const attachments = paths.map((p, i) => ({
-    filename: `photo-${i + 1}.jpg`,
-    content: fs.readFileSync(p).toString('base64'),
-  }));
+  const list = Array.isArray(images) ? images : [];
+  const attachments = list.map((img, i) => {
+    const mime = img.mimetype || 'image/jpeg';
+    const ext = extFromMime(mime);
+    return {
+      filename: `photo-${i + 1}.${ext}`,
+      content: fs.readFileSync(img.path).toString('base64'),
+      content_type: mime,
+    };
+  });
 
   const payload = {
     from: process.env.RESEND_FROM || DEFAULT_FROM,
