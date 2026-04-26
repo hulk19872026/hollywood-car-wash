@@ -231,13 +231,104 @@
   footer a:hover { text-decoration: underline; }
 
   .hidden { display: none !important; }
+
+  /* Tech indicator under the page header */
+  .tech-indicator {
+    display: inline-flex; align-items: center; gap: 12px;
+    margin: 10px 0 0; padding: 6px 14px;
+    background: var(--chip);
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    font-size: 13px; color: var(--fg);
+  }
+  .tech-indicator strong { color: var(--primary); font-weight: 700; }
+  .link-btn {
+    appearance: none; background: transparent; border: 0; padding: 0;
+    color: var(--danger-soft); font-weight: 700; font-size: 13px;
+    cursor: pointer; min-height: 32px;
+  }
+  .link-btn:hover { color: var(--danger); text-decoration: underline; }
+
+  /* Login modal */
+  .login-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    padding: calc(20px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right))
+             calc(20px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .login-card {
+    width: 100%; max-width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 28px 24px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .login-card h2 {
+    margin: 0;
+    font-size: clamp(22px, 5vw, 28px); font-weight: 800;
+    letter-spacing: 0.02em; text-transform: uppercase;
+    background: linear-gradient(135deg, var(--primary), var(--danger));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .login-hint { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
+  .field-label {
+    font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--primary);
+    margin-top: 4px;
+  }
+  .login-card input {
+    width: 100%; min-width: 0;
+    background: rgba(0,0,0,0.4); color: var(--fg);
+    border: 1px solid var(--card-border); border-radius: 12px;
+    padding: 11px 14px; font-size: 16px;
+    min-height: 44px;
+    outline: none;
+  }
+  .login-card input::placeholder { color: rgba(255,255,255,0.55); }
+  .login-card input:focus { border-color: var(--primary); }
+  .login-card .btn.primary { margin-top: 6px; }
+
+  .result-footer {
+    margin: 18px 0 0; font-size: 13px; color: var(--muted);
+  }
+  .result-footer strong { color: var(--primary); font-weight: 700; }
 </style>
 </head>
 <body>
+  <!-- Login modal: shown on first visit, name persisted in localStorage. -->
+  <div class="login-overlay hidden" id="loginOverlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <form class="login-card" id="loginForm" autocomplete="on">
+      <h2 id="loginTitle">Technician sign in</h2>
+      <p class="login-hint">Use your first name as username and last name as password.</p>
+
+      <label for="firstNameInput" class="field-label">Username (first name)</label>
+      <input type="text" id="firstNameInput" name="username" placeholder="First name"
+             autocomplete="username" autocapitalize="words" required maxlength="40" />
+
+      <label for="lastNameInput" class="field-label">Password (last name)</label>
+      <input type="password" id="lastNameInput" name="current-password" placeholder="Last name"
+             autocomplete="current-password" autocapitalize="words" required maxlength="40" />
+
+      <button type="submit" class="btn primary" id="loginBtn">Log in</button>
+      <div class="status" id="loginStatus" aria-live="polite"></div>
+    </form>
+  </div>
+
   <main>
     <header>
       <h1>Hollywood Oil Change</h1>
       <p>Snap five photos of your vehicle for a quick AI inspection.</p>
+      <p class="tech-indicator hidden" id="techIndicator">
+        <span>Signed in as <strong id="techName"></strong></span>
+        <button type="button" class="link-btn" id="signOutBtn">Sign out</button>
+      </p>
     </header>
 
     <section class="card" id="captureCard">
@@ -273,13 +364,7 @@
       <h2>Detected objects</h2>
       <div class="chips" id="resObjects"></div>
 
-      <div class="submit-row">
-        <label for="technicianInput" class="submit-label">Technician name</label>
-        <input type="text" id="technicianInput" placeholder="e.g. Jane Doe" autocomplete="name" autocapitalize="words" maxlength="80" />
-        <button type="button" class="btn primary" id="submitBtn">Submit Report</button>
-        <p class="submit-hint">Inspection will be sent to <strong>david@hulkautomation.com</strong>.</p>
-      </div>
-      <div class="status" id="submitStatus" aria-live="polite"></div>
+      <p class="result-footer">Reports auto-send to <strong>david@hulkautomation.com</strong> the moment analysis completes.</p>
     </section>
 
     <footer>
@@ -298,6 +383,7 @@
       'Undercarriage',
       'Rear Plate',
     ];
+    const TECH_STORAGE_KEY = 'hoc_tech_v1';
     const $ = (id) => document.getElementById(id);
     const photoGrid    = $('photoGrid');
     const photoCountEl = $('photoCount');
@@ -307,15 +393,84 @@
     const analyzeBtn   = $('analyzeBtn');
     const analyzeStatus = $('analyzeStatus');
     const resultCard   = $('resultCard');
-    const technicianInput = $('technicianInput');
-    const submitBtn       = $('submitBtn');
-    const submitStatus    = $('submitStatus');
+    const loginOverlay = $('loginOverlay');
+    const loginForm    = $('loginForm');
+    const firstNameInput = $('firstNameInput');
+    const lastNameInput  = $('lastNameInput');
+    const loginStatus  = $('loginStatus');
+    const techIndicator = $('techIndicator');
+    const techNameEl   = $('techName');
+    const signOutBtn   = $('signOutBtn');
 
     /** @type {Array<File|null>} */
     const currentFiles = Array(PHOTO_COUNT).fill(null);
     /** Index of the slot the next file picked goes into. */
     let activeSlot = 0;
     let lastResult = null;
+    /** @type {{firstName:string,lastName:string}|null} */
+    let currentTech = null;
+
+    // ---- Sign-in (name-capture gate) -------------------------------------
+    function loadStoredTech() {
+      try {
+        const raw = localStorage.getItem(TECH_STORAGE_KEY);
+        if (!raw) return null;
+        const t = JSON.parse(raw);
+        if (t && typeof t.firstName === 'string' && typeof t.lastName === 'string'
+            && t.firstName.trim() && t.lastName.trim()) {
+          return { firstName: t.firstName.trim(), lastName: t.lastName.trim() };
+        }
+      } catch { /* noop */ }
+      return null;
+    }
+    function storeTech(t) {
+      try { localStorage.setItem(TECH_STORAGE_KEY, JSON.stringify(t)); } catch { /* noop */ }
+    }
+    function clearStoredTech() {
+      try { localStorage.removeItem(TECH_STORAGE_KEY); } catch { /* noop */ }
+    }
+    function technicianFullName() {
+      return currentTech ? `${currentTech.firstName} ${currentTech.lastName}` : '';
+    }
+    function showLogin() {
+      loginOverlay.classList.remove('hidden');
+      // Defer focus so the modal is paint-ready (especially on Safari).
+      setTimeout(() => firstNameInput.focus(), 30);
+    }
+    function hideLogin() {
+      loginOverlay.classList.add('hidden');
+      loginStatus.textContent = '';
+    }
+    function applyTech(t) {
+      currentTech = t;
+      techNameEl.textContent = `${t.firstName} ${t.lastName}`;
+      techIndicator.classList.remove('hidden');
+    }
+    function clearTech() {
+      currentTech = null;
+      techIndicator.classList.add('hidden');
+      techNameEl.textContent = '';
+      firstNameInput.value = '';
+      lastNameInput.value = '';
+    }
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const f = (firstNameInput.value || '').trim();
+      const l = (lastNameInput.value || '').trim();
+      if (!f || !l) {
+        setStatus(loginStatus, 'Enter both first name (username) and last name (password).', 'error');
+        return;
+      }
+      const t = { firstName: f, lastName: l };
+      storeTech(t);
+      applyTech(t);
+      hideLogin();
+    });
+    signOutBtn.addEventListener('click', () => {
+      clearStoredTech();
+      clearTech();
+      showLogin();
+    });
 
     const cameraIconSvg = `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -388,7 +543,6 @@
       lastResult = null;
       resultCard.classList.add('hidden');
       analyzeStatus.textContent = '';
-      submitStatus.textContent = '';
       renderSlots();
     });
 
@@ -499,9 +653,32 @@
       return data?.detail || data?.error || ('HTTP ' + status);
     }
 
+    async function autoSendReport(filled) {
+      // Captures the wall-clock time on the client so the email subject and
+      // body match the timestamp burned into each photo (same locale, TZ).
+      const submittedAt = formatTimestamp(new Date());
+      const fd = new FormData();
+      fd.append('technicianName', technicianFullName());
+      fd.append('submittedAt', submittedAt);
+      fd.append('description', lastResult.description || '');
+      fd.append('text', lastResult.text || '');
+      fd.append('objects', JSON.stringify(lastResult.objects || []));
+      if (lastResult.id) fd.append('historyId', lastResult.id);
+      filled.forEach((f) => fd.append('images', f));
+
+      const r = await fetch('/send-email', { method: 'POST', body: fd });
+      const data = await r.json();
+      if (!r.ok) throw new Error(errorFromResponse(data, r.status));
+      return {
+        recipient: data.sentTo || 'david@hulkautomation.com',
+        attachmentCount: data.attachmentCount,
+      };
+    }
+
     analyzeBtn.addEventListener('click', async () => {
       const filled = currentFiles.filter(Boolean);
       if (filled.length !== PHOTO_COUNT) return;
+      if (!currentTech) { showLogin(); return; }
       analyzeBtn.disabled = true;
       setStatus(analyzeStatus, `Analyzing ${PHOTO_COUNT} photos…`, 'loading');
       try {
@@ -514,7 +691,19 @@
         if (!r.ok) throw new Error(errorFromResponse(data, r.status));
         lastResult = data;
         renderResult(data);
-        setStatus(analyzeStatus, 'Done.', 'ok');
+        // Auto-send the report the moment analysis lands. We chain the two
+        // requests intentionally — the user does not click anything between.
+        setStatus(analyzeStatus, 'Sending report…', 'loading');
+        try {
+          const sent = await autoSendReport(filled);
+          const suffix = typeof sent.attachmentCount === 'number'
+            ? ` (${sent.attachmentCount} photo${sent.attachmentCount === 1 ? '' : 's'} attached)`
+            : '';
+          setStatus(analyzeStatus, `Report sent to ${sent.recipient}.${suffix}`, 'ok');
+        } catch (sendErr) {
+          // Analysis succeeded; only the email failed. Surface that distinction.
+          setStatus(analyzeStatus, 'Analysis complete, but email failed: ' + sendErr.message, 'error');
+        }
       } catch (err) {
         setStatus(analyzeStatus, 'Error: ' + err.message, 'error');
       } finally {
@@ -545,48 +734,13 @@
       resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    submitBtn.addEventListener('click', async () => {
-      if (!lastResult) return;
-      const technicianName = technicianInput.value.trim();
-      if (!technicianName) {
-        setStatus(submitStatus, 'Enter the technician name.', 'error');
-        technicianInput.focus();
-        return;
-      }
-      submitBtn.disabled = true;
-      setStatus(submitStatus, 'Submitting report…', 'loading');
-      try {
-        // Send all photos inline with the request. Railway's filesystem
-        // and the in-memory history store are ephemeral, so a historyId
-        // from a previous deploy may point at nothing on the server.
-        // Sending the files inline guarantees attachments arrive.
-        const fd = new FormData();
-        fd.append('technicianName', technicianName);
-        // Capture the submit time on the client so the email subject and
-        // body match the timestamp burned into each photo (same locale, TZ).
-        fd.append('submittedAt', formatTimestamp(new Date()));
-        fd.append('description', lastResult.description || '');
-        fd.append('text', lastResult.text || '');
-        fd.append('objects', JSON.stringify(lastResult.objects || []));
-        if (lastResult.id) fd.append('historyId', lastResult.id);
-        const filled = currentFiles.filter(Boolean);
-        filled.forEach((f) => fd.append('images', f));
-
-        const r = await fetch('/send-email', { method: 'POST', body: fd });
-        const data = await r.json();
-        if (!r.ok) throw new Error(errorFromResponse(data, r.status));
-        const count = data.attachmentCount;
-        const recipient = data.sentTo || 'david@hulkautomation.com';
-        const suffix = typeof count === 'number' ? ` (${count} photo${count === 1 ? '' : 's'} attached)` : '';
-        setStatus(submitStatus, `Report sent to ${recipient}.${suffix}`, 'ok');
-      } catch (err) {
-        setStatus(submitStatus, 'Error: ' + err.message, 'error');
-      } finally {
-        submitBtn.disabled = false;
-      }
-    });
-
-    // Initial render
+    // Initial render — sign-in modal first if no stored tech, then slot grid.
+    const stored = loadStoredTech();
+    if (stored) {
+      applyTech(stored);
+    } else {
+      showLogin();
+    }
     renderSlots();
   </script>
 </body>
