@@ -19,7 +19,7 @@ const RESEND_API_URL = 'https://api.resend.com/emails';
 // to e.g. "Hollywood Oil Change <reports@yourdomain.com>".
 const DEFAULT_FROM = 'Hollywood Oil Change <onboarding@resend.dev>';
 
-function buildHtml({ technicianName, description, text, objects }) {
+function buildHtml({ technicianName, submittedAt, description, text, objects }) {
   const objectsHtml = (objects || []).length
     ? `<ul style="margin:0;padding-left:20px;color:${palette.white};">${objects
         .map((o) => `<li style="margin:4px 0;">${escapeHtml(o)}</li>`)
@@ -35,7 +35,7 @@ function buildHtml({ technicianName, description, text, objects }) {
     <div style="max-width:640px; margin:0 auto; background:${palette.surface}; border-radius:14px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.5); border:1px solid ${palette.border};">
       <div style="background:linear-gradient(135deg,${palette.yellow},${palette.red}); color:${palette.black}; padding:28px 32px;">
         <h1 style="margin:0; font-size:22px; font-weight:800; letter-spacing:0.02em;">HOLLYWOOD OIL CHANGE — Inspection Report</h1>
-        <p style="margin:6px 0 0 0; opacity:.78; font-size:13px;">Submitted on ${new Date().toLocaleString()}</p>
+        <p style="margin:6px 0 0 0; opacity:.78; font-size:13px;">Submitted on ${escapeHtml(submittedAt)}</p>
       </div>
       <div style="padding:28px 32px;">
         ${technicianRow}
@@ -89,12 +89,15 @@ function extFromMime(mime) {
  * @param {object} opts
  * @param {string} opts.to — recipient email
  * @param {string} [opts.technicianName] — technician submitting the report
+ * @param {string} [opts.submittedAt] — preformatted submit timestamp from
+ *   the client; used so the email subject + body match the timestamp
+ *   burned into the photos. Falls back to server's now if absent.
  * @param {string} opts.description
  * @param {string} opts.text
  * @param {string[]} opts.objects
  * @param {Array<{path: string, mimetype?: string}>} [opts.images] — files to attach
  */
-async function sendResultsEmail({ to, technicianName, description, text, objects, images }) {
+async function sendResultsEmail({ to, technicianName, submittedAt, description, text, objects, images }) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error('RESEND_API_KEY is not configured');
   }
@@ -110,15 +113,17 @@ async function sendResultsEmail({ to, technicianName, description, text, objects
     };
   });
 
-  const subject = technicianName
-    ? `Hollywood Oil Change — Inspection Report (${technicianName})`
-    : 'Hollywood Oil Change — Inspection Report';
+  // Subject is "<date & time> — <technician name>" (or just the timestamp
+  // when no name was provided). Falls back to server's now if the client
+  // didn't supply a preformatted submittedAt.
+  const stamp = submittedAt && submittedAt.trim() ? submittedAt.trim() : new Date().toLocaleString();
+  const subject = technicianName ? `${stamp} — ${technicianName}` : stamp;
 
   const payload = {
     from: process.env.RESEND_FROM || DEFAULT_FROM,
     to: [to],
     subject,
-    html: buildHtml({ technicianName, description, text, objects }),
+    html: buildHtml({ technicianName, submittedAt: stamp, description, text, objects }),
     attachments,
   };
 

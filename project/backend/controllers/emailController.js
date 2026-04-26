@@ -34,6 +34,7 @@ async function sendEmail(req, res, next) {
   try {
     const body = req.body || {};
     const technicianName = (body.technicianName || '').trim();
+    const submittedAt = (body.submittedAt || '').trim();
     const description = (body.description || '').trim();
     const text = (body.text || '').trim();
 
@@ -67,6 +68,7 @@ async function sendEmail(req, res, next) {
     const result = await sendResultsEmail({
       to: REPORT_RECIPIENT,
       technicianName,
+      submittedAt,
       description,
       text,
       objects,

@@ -561,6 +561,9 @@
         // Sending the files inline guarantees attachments arrive.
         const fd = new FormData();
         fd.append('technicianName', technicianName);
+        // Capture the submit time on the client so the email subject and
+        // body match the timestamp burned into each photo (same locale, TZ).
+        fd.append('submittedAt', formatTimestamp(new Date()));
         fd.append('description', lastResult.description || '');
         fd.append('text', lastResult.text || '');
         fd.append('objects', JSON.stringify(lastResult.objects || []));
