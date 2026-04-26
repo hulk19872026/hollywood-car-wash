@@ -698,7 +698,7 @@
         try {
           const sent = await autoSendReport(filled);
           const suffix = typeof sent.attachmentCount === 'number'
-            ? ` (${sent.attachmentCount} photo${sent.attachmentCount === 1 ? '' : 's'} attached)`
+            ? ` (PDF with ${sent.attachmentCount} photo${sent.attachmentCount === 1 ? '' : 's'} attached)`
             : '';
           setStatus(analyzeStatus, `Report sent to ${sent.recipient}.${suffix} Resetting…`, 'ok');
           fullSuccess = true;

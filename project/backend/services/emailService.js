@@ -1,4 +1,4 @@
-const fs = require('fs');
+const { buildInspectionPdf, pdfFilename } = require('./pdfService');
 
 // Hollywood Oil Change palette — black, yellow, red only (white permitted for body text).
 const palette = {
@@ -49,7 +49,7 @@ function buildHtml({ technicianName, submittedAt, description, text, objects }) 
         <div style="font-size:14px; color:${palette.white};">${objectsHtml}</div>
 
         <hr style="border:none; border-top:1px solid ${palette.border}; margin:28px 0;" />
-        <p style="font-size:12px; color:${palette.whiteMuted}; margin:0;">The analyzed photos are attached to this email.</p>
+        <p style="font-size:12px; color:${palette.whiteMuted}; margin:0;">The full inspection — including all photos — is attached as a PDF.</p>
       </div>
     </div>
   </div>`;
@@ -64,23 +64,13 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-function extFromMime(mime) {
-  if (!mime) return 'jpg';
-  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
-  if (mime === 'image/png') return 'png';
-  if (mime === 'image/heic' || mime === 'image/heif') return 'heic';
-  if (mime === 'image/webp') return 'webp';
-  if (mime === 'image/gif') return 'gif';
-  // Generic fallback for anything else (e.g. image/svg+xml -> svg)
-  const m = /^image\/([a-z0-9.+-]+)$/i.exec(mime);
-  return m ? m[1].split('+')[0] : 'jpg';
-}
-
 /**
  * Send the inspection report via the Resend HTTPS API.
  *
- * Resend goes over standard HTTPS, which is reachable from Railway
- * (unlike outbound SMTP, which Railway tends to block).
+ * Renders a single PDF containing the metadata, analysis, and all five
+ * labeled photos, then attaches that as the only file. Resend goes over
+ * standard HTTPS, which is reachable from Railway (unlike outbound SMTP,
+ * which Railway tends to block).
  *
  * Required env: RESEND_API_KEY
  * Optional env: RESEND_FROM (defaults to the Resend onboarding sender —
@@ -90,34 +80,37 @@ function extFromMime(mime) {
  * @param {string} opts.to — recipient email
  * @param {string} [opts.technicianName] — technician submitting the report
  * @param {string} [opts.submittedAt] — preformatted submit timestamp from
- *   the client; used so the email subject + body match the timestamp
- *   burned into the photos. Falls back to server's now if absent.
+ *   the client; used so the email subject + body + PDF cover all match
+ *   the timestamp burned into the photos. Falls back to server's now.
  * @param {string} opts.description
  * @param {string} opts.text
  * @param {string[]} opts.objects
- * @param {Array<{path: string, mimetype?: string}>} [opts.images] — files to attach
+ * @param {Array<{path: string, mimetype?: string}>} [opts.images]
  */
 async function sendResultsEmail({ to, technicianName, submittedAt, description, text, objects, images }) {
   if (!process.env.RESEND_API_KEY) {
     throw new Error('RESEND_API_KEY is not configured');
   }
 
-  const list = Array.isArray(images) ? images : [];
-  const attachments = list.map((img, i) => {
-    const mime = img.mimetype || 'image/jpeg';
-    const ext = extFromMime(mime);
-    return {
-      filename: `photo-${i + 1}.${ext}`,
-      content: fs.readFileSync(img.path).toString('base64'),
-      content_type: mime,
-    };
-  });
-
-  // Subject is "<date & time> — <technician name>" (or just the timestamp
-  // when no name was provided). Falls back to server's now if the client
-  // didn't supply a preformatted submittedAt.
+  // Subject + cover timestamp: prefer the client-supplied stamp so all
+  // surfaces (subject, body, PDF cover, photo burn-in) read identically.
   const stamp = submittedAt && submittedAt.trim() ? submittedAt.trim() : new Date().toLocaleString();
   const subject = technicianName ? `${stamp} — ${technicianName}` : stamp;
+
+  // Build the inspection PDF (cover + one labeled page per photo).
+  const pdfBuffer = await buildInspectionPdf({
+    technicianName,
+    submittedAt: stamp,
+    description,
+    text,
+    objects,
+    images: Array.isArray(images) ? images : [],
+  });
+  const attachments = [{
+    filename: pdfFilename({ technicianName, submittedAt: stamp }),
+    content: pdfBuffer.toString('base64'),
+    content_type: 'application/pdf',
+  }];
 
   const payload = {
     from: process.env.RESEND_FROM || DEFAULT_FROM,
