@@ -49,7 +49,7 @@ function buildHtml({ technicianName, submittedAt, description, text, objects }) 
         <div style="font-size:14px; color:${palette.white};">${objectsHtml}</div>
 
         <hr style="border:none; border-top:1px solid ${palette.border}; margin:28px 0;" />
-        <p style="font-size:12px; color:${palette.whiteMuted}; margin:0;">The four analyzed photos are attached to this email.</p>
+        <p style="font-size:12px; color:${palette.whiteMuted}; margin:0;">The analyzed photos are attached to this email.</p>
       </div>
     </div>
   </div>`;

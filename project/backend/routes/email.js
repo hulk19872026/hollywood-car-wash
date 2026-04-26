@@ -4,8 +4,8 @@ const { sendEmail } = require('../controllers/emailController');
 
 const router = express.Router();
 
-// Accepts both multipart/form-data (with optional "images[]" up to 4)
+// Accepts both multipart/form-data (with optional "images[]" up to 5)
 // and application/json (which falls back to the historyId lookup).
-router.post('/', upload.array('images', 4), sendEmail);
+router.post('/', upload.array('images', 5), sendEmail);
 
 module.exports = router;

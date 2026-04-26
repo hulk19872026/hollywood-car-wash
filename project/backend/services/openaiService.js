@@ -4,7 +4,7 @@
  * Filename kept as `openaiService.js` for backwards-compat with existing
  * imports; implementation uses the Anthropic Claude API (vision).
  *
- * The Hollywood Oil Change app requires the user to submit four photos in a
+ * The Hollywood Oil Change app requires the user to submit five photos in a
  * single batch. analyzeImage() takes an array of files and returns a single
  * consolidated analysis:
  *   { description: string, text: string, objects: string[] }
@@ -14,19 +14,20 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-7';
 
-const SYSTEM_PROMPT = `You are an image analysis assistant for Hollywood Oil Change, an automotive oil-change service. The user has uploaded four photos of a single vehicle in this exact order:
+const SYSTEM_PROMPT = `You are an image analysis assistant for Hollywood Oil Change, an automotive oil-change service. The user has uploaded five photos of a single vehicle in this exact order:
   1. Registration (the vehicle's registration sticker, card, or document)
   2. Mileage on the dashboard (odometer reading)
   3. Engine bay
   4. Undercarriage
+  5. Rear plate (the vehicle's rear license plate)
 
 Each photo also has its label and the capture timestamp burned into the top of the image.
 
-Analyze all four photos together and respond ONLY with a valid JSON object matching EXACTLY this schema and nothing else (no markdown, no code fences, no commentary):
+Analyze all five photos together and respond ONLY with a valid JSON object matching EXACTLY this schema and nothing else (no markdown, no code fences, no commentary):
 {
-  "description": "a clear 4-8 sentence natural-language summary covering: vehicle make/model/year if identifiable from the registration, the odometer reading, visible engine-bay condition (oil leaks, belt wear, fluid levels), and any notable undercarriage observations (rust, damage, fluid leaks). Reference the photos by their labels when relevant.",
-  "text": "all readable text extracted from the images via OCR (registration details, license/VIN, odometer reading, decals, fluid labels), concatenated with newlines, or empty string if none",
-  "objects": ["list", "of", "distinct", "notable", "objects", "or", "components", "visible", "across", "the", "four", "photos"]
+  "description": "a clear 4-8 sentence natural-language summary covering: vehicle make/model/year if identifiable from the registration, the odometer reading, visible engine-bay condition (oil leaks, belt wear, fluid levels), notable undercarriage observations (rust, damage, fluid leaks), and the rear license plate number if legible. Reference the photos by their labels when relevant.",
+  "text": "all readable text extracted from the images via OCR (registration details, license/VIN, odometer reading, rear license plate, decals, fluid labels), concatenated with newlines, or empty string if none",
+  "objects": ["list", "of", "distinct", "notable", "objects", "or", "components", "visible", "across", "the", "five", "photos"]
 }`;
 
 function safeParseJson(raw) {
@@ -64,7 +65,7 @@ function wrapAnthropicError(err) {
 }
 
 /**
- * @param {Array<{filePath: string, mimeType?: string}>} files — exactly 4 image files
+ * @param {Array<{filePath: string, mimeType?: string}>} files — exactly 5 image files
  */
 async function analyzeImage(files) {
   if (!process.env.ANTHROPIC_API_KEY) {

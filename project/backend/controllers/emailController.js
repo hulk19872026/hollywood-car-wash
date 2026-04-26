@@ -10,7 +10,7 @@ const REPORT_RECIPIENT = process.env.REPORT_RECIPIENT || 'david@hulkautomation.c
 /**
  * Submit an inspection report.
  *
- * Accepts multipart/form-data (preferred — includes the 4 photos inline) or
+ * Accepts multipart/form-data (preferred — includes the 5 photos inline) or
  * application/json (which falls back to the historyId lookup for images).
  *
  * Required body fields:

@@ -2,7 +2,7 @@ const fs = require('fs');
 const { analyzeImage } = require('../services/openaiService');
 const historyStore = require('../services/historyStore');
 
-const REQUIRED_PHOTO_COUNT = 4;
+const REQUIRED_PHOTO_COUNT = 5;
 
 function unlinkSafe(p) {
   if (p && fs.existsSync(p)) {

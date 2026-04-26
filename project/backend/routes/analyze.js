@@ -4,6 +4,6 @@ const { analyze } = require('../controllers/analyzeController');
 
 const router = express.Router();
 
-router.post('/', upload.array('images', 4), analyze);
+router.post('/', upload.array('images', 5), analyze);
 
 module.exports = router;
