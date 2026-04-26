@@ -23,12 +23,26 @@ const SYSTEM_PROMPT = `You are an image analysis assistant for Hollywood Oil Cha
 
 Each photo also has its label and the capture timestamp burned into the top of the image.
 
-Analyze all five photos together and respond ONLY with a valid JSON object matching EXACTLY this schema and nothing else (no markdown, no code fences, no commentary):
-{
-  "description": "a clear 4-8 sentence natural-language summary covering: vehicle make/model/year if identifiable from the registration, the odometer reading, visible engine-bay condition (oil leaks, belt wear, fluid levels), notable undercarriage observations (rust, damage, fluid leaks), and the rear license plate number if legible. Reference the photos by their labels when relevant.",
-  "text": "all readable text extracted from the images via OCR (registration details, license/VIN, odometer reading, rear license plate, decals, fluid labels), concatenated with newlines, or empty string if none",
-  "objects": ["list", "of", "distinct", "notable", "objects", "or", "components", "visible", "across", "the", "five", "photos"]
-}`;
+Analyze all five photos together and produce:
+- description: a clear 4-8 sentence natural-language summary covering vehicle make/model/year if identifiable from the registration, the odometer reading, visible engine-bay condition (oil leaks, belt wear, fluid levels), notable undercarriage observations (rust, damage, fluid leaks), and the rear license plate number if legible. Reference the photos by their labels when relevant.
+- text: all readable text extracted from the images via OCR (registration details, license/VIN, odometer reading, rear license plate, decals, fluid labels), concatenated with newlines, or an empty string if none.
+- objects: a list of distinct notable objects or components visible across the five photos.`;
+
+// JSON Schema enforced via output_config.format. Guarantees Claude returns
+// valid JSON matching the shape, eliminating prompt-coaxed parse failures.
+const RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    description: { type: 'string' },
+    text: { type: 'string' },
+    objects: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  },
+  required: ['description', 'text', 'objects'],
+  additionalProperties: false,
+};
 
 function safeParseJson(raw) {
   if (!raw) return null;
@@ -93,8 +107,17 @@ async function analyzeImage(files) {
   try {
     response = await client.messages.create({
       model: DEFAULT_MODEL,
-      max_tokens: 1024,
+      // Bumped from 1024 — the older value occasionally truncated mid-JSON
+      // when the description + OCR + objects list ran long for 5 photos.
+      max_tokens: 4096,
       system: SYSTEM_PROMPT,
+      // Constrain the output to our exact schema so we never have to guess
+      // at parsing prose-wrapped JSON. Supported on Opus 4.7 / Sonnet 4.6 /
+      // Haiku 4.5; on older models this property is silently ignored and
+      // safeParseJson handles the fallback.
+      output_config: {
+        format: { type: 'json_schema', schema: RESPONSE_SCHEMA },
+      },
       messages: [
         {
           role: 'user',
@@ -102,7 +125,7 @@ async function analyzeImage(files) {
             ...imageBlocks,
             {
               type: 'text',
-              text: `Analyze these ${files.length} photos together and return JSON as instructed.`,
+              text: `Analyze these ${files.length} photos together and return the structured response.`,
             },
           ],
         },
@@ -119,7 +142,13 @@ async function analyzeImage(files) {
   const parsed = safeParseJson(raw);
 
   if (!parsed) {
-    throw new Error('Failed to parse model response as JSON');
+    // Surface a snippet of what came back so callers can debug instead of
+    // staring at the generic wrapper.
+    const preview = raw ? raw.slice(0, 240).replace(/\s+/g, ' ').trim() : '(empty response)';
+    const err = new Error(`Failed to parse model response as JSON. stop_reason=${response.stop_reason || 'unknown'}; preview="${preview}"`);
+    err.stop_reason = response.stop_reason;
+    err.raw = raw;
+    throw err;
   }
 
   return {
