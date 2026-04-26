@@ -681,6 +681,7 @@
       if (!currentTech) { showLogin(); return; }
       analyzeBtn.disabled = true;
       setStatus(analyzeStatus, `Analyzing ${PHOTO_COUNT} photos…`, 'loading');
+      let fullSuccess = false;
       try {
         const fd = new FormData();
         // currentFiles already hold processed (downscaled + stamped) copies,
@@ -699,7 +700,8 @@
           const suffix = typeof sent.attachmentCount === 'number'
             ? ` (${sent.attachmentCount} photo${sent.attachmentCount === 1 ? '' : 's'} attached)`
             : '';
-          setStatus(analyzeStatus, `Report sent to ${sent.recipient}.${suffix}`, 'ok');
+          setStatus(analyzeStatus, `Report sent to ${sent.recipient}.${suffix} Resetting…`, 'ok');
+          fullSuccess = true;
         } catch (sendErr) {
           // Analysis succeeded; only the email failed. Surface that distinction.
           setStatus(analyzeStatus, 'Analysis complete, but email failed: ' + sendErr.message, 'error');
@@ -707,7 +709,16 @@
       } catch (err) {
         setStatus(analyzeStatus, 'Error: ' + err.message, 'error');
       } finally {
-        analyzeBtn.disabled = currentFiles.filter(Boolean).length !== PHOTO_COUNT;
+        if (fullSuccess) {
+          // Reload so the next inspection starts from a clean slate. The tech
+          // stays signed in because their name is still in localStorage and
+          // the page-load logic skips the modal whenever a stored tech is
+          // found. Hold the success message for a beat first so the tech can
+          // actually read it.
+          setTimeout(() => window.location.reload(), 2500);
+        } else {
+          analyzeBtn.disabled = currentFiles.filter(Boolean).length !== PHOTO_COUNT;
+        }
       }
     });
 
