@@ -4,16 +4,24 @@ const historyStore = require('../services/historyStore');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Inspection reports always go to David. Override via env var if needed.
+const REPORT_RECIPIENT = process.env.REPORT_RECIPIENT || 'david@hulkautomation.com';
+
 /**
- * Two supported modes:
+ * Submit an inspection report.
  *
- *  A) multipart/form-data with fields:
- *       images[] (files, optional), email, description, text,
- *       objects (JSON string or repeated field)
+ * Accepts multipart/form-data (preferred — includes the 4 photos inline) or
+ * application/json (which falls back to the historyId lookup for images).
  *
- *  B) application/json with:
- *       { email, description, text, objects, historyId? }
- *     If historyId is given, the stored images for that scan will be attached.
+ * Required body fields:
+ *   - technicianName (string, non-empty)
+ *
+ * Optional:
+ *   - description, text, objects (the analysis result fields)
+ *   - historyId (used to look up stored photos if none are uploaded)
+ *
+ * The recipient is fixed (REPORT_RECIPIENT) — no email field is read from
+ * the request.
  */
 function unlinkSafe(p) {
   if (p && fs.existsSync(p)) {
@@ -25,7 +33,7 @@ async function sendEmail(req, res, next) {
   const uploadedPaths = Array.isArray(req.files) ? req.files.map((f) => f.path) : [];
   try {
     const body = req.body || {};
-    const email = (body.email || '').trim();
+    const technicianName = (body.technicianName || '').trim();
     const description = (body.description || '').trim();
     const text = (body.text || '').trim();
 
@@ -35,9 +43,9 @@ async function sendEmail(req, res, next) {
     }
     if (!Array.isArray(objects)) objects = [];
 
-    if (!email || !EMAIL_RE.test(email)) {
+    if (!technicianName) {
       uploadedPaths.forEach(unlinkSafe);
-      return res.status(400).json({ error: 'Valid "email" is required' });
+      return res.status(400).json({ error: 'Technician name is required' });
     }
 
     // Prefer freshly-uploaded files (most reliable — Railway's filesystem and
@@ -57,7 +65,8 @@ async function sendEmail(req, res, next) {
     }
 
     const result = await sendResultsEmail({
-      to: email,
+      to: REPORT_RECIPIENT,
+      technicianName,
       description,
       text,
       objects,
@@ -67,25 +76,25 @@ async function sendEmail(req, res, next) {
     res.json({
       success: true,
       messageId: result.messageId,
-      sentTo: email,
+      sentTo: REPORT_RECIPIENT,
       attachmentCount: images.length,
     });
   } catch (err) {
     next(err);
   } finally {
-    // Always clean up the per-request uploads. Files referenced via historyId
-    // are owned by historyStore and intentionally left in place.
     uploadedPaths.forEach(unlinkSafe);
   }
 }
 
-/** Re-send a previous scan from history */
+/** Re-send a previous scan from history (admin / API use). */
 async function resend(req, res, next) {
   try {
     const { id } = req.params;
-    const email = (req.body?.email || '').trim();
+    const body = req.body || {};
+    const to = (body.email || '').trim() || REPORT_RECIPIENT;
+    const technicianName = (body.technicianName || '').trim() || 'Resend';
 
-    if (!email || !EMAIL_RE.test(email)) {
+    if (!EMAIL_RE.test(to)) {
       return res.status(400).json({ error: 'Valid "email" is required' });
     }
 
@@ -97,14 +106,15 @@ async function resend(req, res, next) {
       .map((p) => ({ path: p }));
 
     const result = await sendResultsEmail({
-      to: email,
+      to,
+      technicianName,
       description: rec.description,
       text: rec.text,
       objects: rec.objects,
       images,
     });
 
-    res.json({ success: true, messageId: result.messageId, sentTo: email, id });
+    res.json({ success: true, messageId: result.messageId, sentTo: to, id });
   } catch (err) {
     next(err);
   }

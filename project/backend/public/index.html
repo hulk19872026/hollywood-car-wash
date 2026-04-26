@@ -182,17 +182,33 @@
     font-size: 13px; color: var(--primary);
   }
 
-  .email-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
-  .email-row input {
-    flex: 1; min-width: 0;
+  .submit-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  @media (min-width: 480px) {
+    .submit-row { grid-template-columns: 1fr auto; align-items: center; }
+    .submit-row .submit-label { grid-column: 1 / -1; }
+    .submit-row .submit-hint  { grid-column: 1 / -1; }
+  }
+  .submit-label {
+    font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--primary);
+  }
+  .submit-row input {
+    min-width: 0;
     background: rgba(0,0,0,0.25); color: var(--fg);
     border: 1px solid var(--card-border); border-radius: 12px;
     padding: 11px 14px; font-size: 16px;
     min-height: 44px;
     outline: none;
   }
-  .email-row input::placeholder { color: rgba(255,255,255,0.55); }
-  .email-row input:focus { border-color: var(--primary); }
+  .submit-row input::placeholder { color: rgba(255,255,255,0.55); }
+  .submit-row input:focus { border-color: var(--primary); }
+  .submit-hint { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+  .submit-hint strong { color: var(--primary); font-weight: 700; }
 
   .status {
     margin-top: 12px; min-height: 22px; font-size: 14px;
@@ -257,11 +273,13 @@
       <h2>Detected objects</h2>
       <div class="chips" id="resObjects"></div>
 
-      <div class="email-row">
-        <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" inputmode="email" />
-        <button type="button" class="btn primary" id="sendEmailBtn">Email me the report</button>
+      <div class="submit-row">
+        <label for="technicianInput" class="submit-label">Technician name</label>
+        <input type="text" id="technicianInput" placeholder="e.g. Jane Doe" autocomplete="name" autocapitalize="words" maxlength="80" />
+        <button type="button" class="btn primary" id="submitBtn">Submit Report</button>
+        <p class="submit-hint">Inspection will be sent to <strong>david@hulkautomation.com</strong>.</p>
       </div>
-      <div class="status" id="emailStatus" aria-live="polite"></div>
+      <div class="status" id="submitStatus" aria-live="polite"></div>
     </section>
 
     <footer>
@@ -288,9 +306,9 @@
     const analyzeBtn   = $('analyzeBtn');
     const analyzeStatus = $('analyzeStatus');
     const resultCard   = $('resultCard');
-    const emailInput   = $('emailInput');
-    const sendEmailBtn = $('sendEmailBtn');
-    const emailStatus  = $('emailStatus');
+    const technicianInput = $('technicianInput');
+    const submitBtn       = $('submitBtn');
+    const submitStatus    = $('submitStatus');
 
     /** @type {Array<File|null>} */
     const currentFiles = Array(PHOTO_COUNT).fill(null);
@@ -369,7 +387,7 @@
       lastResult = null;
       resultCard.classList.add('hidden');
       analyzeStatus.textContent = '';
-      emailStatus.textContent = '';
+      submitStatus.textContent = '';
       renderSlots();
     });
 
@@ -526,22 +544,23 @@
       resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    sendEmailBtn.addEventListener('click', async () => {
+    submitBtn.addEventListener('click', async () => {
       if (!lastResult) return;
-      const email = emailInput.value.trim();
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setStatus(emailStatus, 'Enter a valid email address.', 'error');
+      const technicianName = technicianInput.value.trim();
+      if (!technicianName) {
+        setStatus(submitStatus, 'Enter the technician name.', 'error');
+        technicianInput.focus();
         return;
       }
-      sendEmailBtn.disabled = true;
-      setStatus(emailStatus, 'Sending email…', 'loading');
+      submitBtn.disabled = true;
+      setStatus(submitStatus, 'Submitting report…', 'loading');
       try {
-        // Re-upload the 4 photos directly with the email request. Railway's
-        // filesystem and the in-memory history store are ephemeral, so a
-        // historyId from a previous deploy may point at nothing on the
-        // server. Sending the files inline guarantees attachments arrive.
+        // Send the 4 photos inline with the request. Railway's filesystem
+        // and the in-memory history store are ephemeral, so a historyId
+        // from a previous deploy may point at nothing on the server.
+        // Sending the files inline guarantees attachments arrive.
         const fd = new FormData();
-        fd.append('email', email);
+        fd.append('technicianName', technicianName);
         fd.append('description', lastResult.description || '');
         fd.append('text', lastResult.text || '');
         fd.append('objects', JSON.stringify(lastResult.objects || []));
@@ -553,12 +572,13 @@
         const data = await r.json();
         if (!r.ok) throw new Error(errorFromResponse(data, r.status));
         const count = data.attachmentCount;
+        const recipient = data.sentTo || 'david@hulkautomation.com';
         const suffix = typeof count === 'number' ? ` (${count} photo${count === 1 ? '' : 's'} attached)` : '';
-        setStatus(emailStatus, 'Sent to ' + email + '.' + suffix, 'ok');
+        setStatus(submitStatus, `Report sent to ${recipient}.${suffix}`, 'ok');
       } catch (err) {
-        setStatus(emailStatus, 'Error: ' + err.message, 'error');
+        setStatus(submitStatus, 'Error: ' + err.message, 'error');
       } finally {
-        sendEmailBtn.disabled = false;
+        submitBtn.disabled = false;
       }
     });
 
