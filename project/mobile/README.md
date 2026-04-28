@@ -72,6 +72,61 @@ npm run android        # Android emulator
 
 Scan the QR code with the **Expo Go** app to run it on a real device.
 
+## Build a downloadable APK
+
+The app uses **EAS Build** to produce a standalone Android APK that can be side-loaded onto any device (no Play Store required). Build profiles are defined in `eas.json` — the `preview` and `production` profiles both emit an `.apk` (rather than the Play Store `.aab`).
+
+### One-time setup
+
+1. Create a free [Expo account](https://expo.dev/signup).
+2. Install the EAS CLI and log in:
+
+   ```bash
+   npm install -g eas-cli
+   eas login
+   ```
+
+3. From `project/mobile/`, link the project to your Expo account (only needed the first time):
+
+   ```bash
+   cd project/mobile
+   eas init
+   ```
+
+   This writes an `extra.eas.projectId` field into `app.json`.
+
+### Build the APK (cloud build, no Android SDK needed)
+
+```bash
+cd project/mobile
+eas build --platform android --profile preview
+```
+
+EAS queues the build on Expo's servers. When it finishes (typically 10–20 min) the CLI prints a link such as `https://expo.dev/artifacts/eas/...apk`. That URL is the **downloadable APK** — open it on the target Android device, accept "Install from unknown sources", and tap install.
+
+To build the production APK instead (auto-increments `versionCode`):
+
+```bash
+eas build --platform android --profile production
+```
+
+### Build the APK locally (no Expo cloud)
+
+If you have Android Studio / the Android SDK installed and prefer to build offline:
+
+```bash
+cd project/mobile
+npx expo prebuild --platform android       # generates the android/ folder
+cd android
+./gradlew assembleRelease                  # produces app/build/outputs/apk/release/app-release.apk
+```
+
+The resulting `app-release.apk` is the downloadable artifact. Note that an unsigned debug-key APK is fine for sideloading; for distribution on Google Play you'd need a release keystore.
+
+### Before you build
+
+Make sure `expo.extra.apiBaseUrl` in `app.json` points at your **deployed** backend (e.g. the Railway URL). Once an APK is built, the API URL is baked in — `localhost` won't work on a real phone.
+
 ## How it works
 
 1. **HomeScreen** — shows "Take a Photo" and "Upload from Gallery" buttons. Requests camera / media library permissions on demand.
