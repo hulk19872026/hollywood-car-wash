@@ -193,3 +193,7 @@ These are declared in `app.json` (`ios.infoPlist`, `android.permissions`, and th
 - **Network request failed** — make sure `apiBaseUrl` is reachable from your device. `localhost` only works in simulators on the same machine as the server.
 - **Image upload too large** — the backend limits uploads to 15 MB. The image picker is set to `quality: 0.85` which is usually fine; lower it if you hit the limit.
 - **Gmail auth error on backend** — use a [Google App Password](https://myaccount.google.com/apppasswords), not your regular account password, and make sure 2FA is enabled on the Gmail account.
+- **`eas build` fails with `"shortUuidOrUuid": Invalid string: must match pattern …`** — EAS is rejecting the project ID. Almost always one of:
+  - You haven't run `eas init` yet (or it didn't finish). Run `eas init --force` from `project/mobile/` and try the build again.
+  - `extra.eas.projectId` in `app.json` is missing, contains a placeholder, has stray whitespace/quotes, or has invalid base58 characters (`0`, `O`, `I`, `l`). Delete that field and re-run `eas init --force` so EAS rewrites it.
+  - The slug collides with a stale project on your Expo account. Either delete the old project at <https://expo.dev> → Projects, or change `slug` in `app.json` and re-run `eas init --force`.
