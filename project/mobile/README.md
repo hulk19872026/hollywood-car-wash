@@ -76,6 +76,27 @@ Scan the QR code with the **Expo Go** app to run it on a real device.
 
 The app uses **EAS Build** to produce a standalone Android APK that can be side-loaded onto any device (no Play Store required). Build profiles are defined in `eas.json` — the `preview` and `production` profiles both emit an `.apk` (rather than the Play Store `.aab`).
 
+### Easiest path — GitHub Actions (no terminal needed)
+
+The repo ships with `.github/workflows/build-apk.yml`, which runs `eas build` for you on Expo's servers and prints the install link in the workflow summary.
+
+**One-time setup:**
+
+1. Go to <https://expo.dev/accounts/hulk1987/settings/access-tokens> and click **Create token**. Copy the value (it's shown once).
+2. On GitHub, go to the repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+3. Name: `EXPO_TOKEN`. Value: the token from step 1. Save.
+
+**Trigger a build (any time after that):**
+
+1. GitHub repo → **Actions** tab → **Build Android APK** workflow → **Run workflow** → pick a branch → **Run**.
+2. Wait for the workflow's "Trigger EAS Android build" step to finish (~1–2 min).
+3. Open the workflow run's **Summary** tab — it links to the EAS build page.
+4. Open that link on the Android phone, tap **Install**, accept "install from unknown sources." Done.
+
+The workflow also auto-runs on every push to `main` that touches `project/mobile/`, so committing app changes through the GitHub web editor produces a fresh APK with no other action.
+
+### Manual path (run from a terminal)
+
 ### One-time setup
 
 1. Create a free [Expo account](https://expo.dev/signup).

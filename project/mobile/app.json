@@ -2,6 +2,7 @@
   "expo": {
     "name": "Hollywood Oil Change",
     "slug": "hollywood-oil-change",
+    "owner": "hulk1987",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",

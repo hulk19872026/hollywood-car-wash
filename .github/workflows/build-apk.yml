@@ -1,0 +1,81 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS build profile"
+        type: choice
+        default: preview
+        options:
+          - preview
+          - production
+  push:
+    branches:
+      - main
+      - claude/build-apk-download-FPALx
+    paths:
+      - "project/mobile/**"
+      - ".github/workflows/build-apk.yml"
+
+jobs:
+  build:
+    name: eas build (android, ${{ github.event.inputs.profile || 'preview' }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: project/mobile
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: project/mobile/package-lock.json
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install JS dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Ensure project is linked to Expo account
+        run: eas init --non-interactive --force
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Trigger EAS Android build
+        id: build
+        run: |
+          set -euo pipefail
+          PROFILE="${{ github.event.inputs.profile || 'preview' }}"
+          OUTPUT=$(eas build \
+            --platform android \
+            --profile "$PROFILE" \
+            --non-interactive \
+            --no-wait \
+            --json)
+          echo "$OUTPUT"
+          BUILD_URL=$(echo "$OUTPUT" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);console.log(a[0].buildUrl||a[0].url||'')})")
+          BUILD_ID=$(echo "$OUTPUT"  | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);console.log(a[0].id||'')})")
+          echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+          echo "build_id=$BUILD_ID"   >> "$GITHUB_OUTPUT"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Summarize build link
+        run: |
+          {
+            echo "## Android APK build queued"
+            echo ""
+            echo "- Profile: \`${{ github.event.inputs.profile || 'preview' }}\`"
+            echo "- Build page: ${{ steps.build.outputs.build_url }}"
+            echo ""
+            echo "When the build finishes (typically 10-25 min), open the build page on a phone, tap **Install**, and accept 'install from unknown sources'. The APK is also downloadable from the same page."
+          } >> "$GITHUB_STEP_SUMMARY"
