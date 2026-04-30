@@ -53,27 +53,44 @@ jobs:
         run: |
           set -euo pipefail
           PROFILE="${{ github.event.inputs.profile || 'preview' }}"
-          OUTPUT=$(eas build \
+          eas build \
             --platform android \
             --profile "$PROFILE" \
             --non-interactive \
             --no-wait \
-            --json)
-          echo "$OUTPUT"
-          BUILD_URL=$(echo "$OUTPUT" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);console.log(a[0].buildUrl||a[0].url||'')})")
-          BUILD_ID=$(echo "$OUTPUT"  | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const a=JSON.parse(s);console.log(a[0].id||'')})")
-          echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+            --json > build.json
+          echo "--- raw eas build --json output ---"
+          cat build.json
+          echo "--- end ---"
+
+          BUILD_ID=$(node -e "console.log(JSON.parse(require('fs').readFileSync('build.json','utf8'))[0].id||'')")
+          OWNER=$(node -e "const b=JSON.parse(require('fs').readFileSync('build.json','utf8'))[0]; console.log(b.project?.ownerAccount?.name || b.account?.name || JSON.parse(require('fs').readFileSync('app.json','utf8')).expo.owner || '')")
+          SLUG=$(node -e "const b=JSON.parse(require('fs').readFileSync('build.json','utf8'))[0]; console.log(b.project?.slug || JSON.parse(require('fs').readFileSync('app.json','utf8')).expo.slug || '')")
+
+          BUILD_URL=$(node -e "const b=JSON.parse(require('fs').readFileSync('build.json','utf8'))[0]; console.log(b.buildDetailsPageUrl || b.buildUrl || b.url || '')")
+          if [ -z "$BUILD_URL" ] && [ -n "$OWNER" ] && [ -n "$SLUG" ] && [ -n "$BUILD_ID" ]; then
+            BUILD_URL="https://expo.dev/accounts/$OWNER/projects/$SLUG/builds/$BUILD_ID"
+          fi
+
           echo "build_id=$BUILD_ID"   >> "$GITHUB_OUTPUT"
+          echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+          echo "Resolved build URL: $BUILD_URL"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Summarize build link
         run: |
+          URL="${{ steps.build.outputs.build_url }}"
+          ID="${{ steps.build.outputs.build_id }}"
           {
             echo "## Android APK build queued"
             echo ""
             echo "- Profile: \`${{ github.event.inputs.profile || 'preview' }}\`"
-            echo "- Build page: ${{ steps.build.outputs.build_url }}"
+            if [ -n "$URL" ]; then
+              echo "- Build page: [$URL]($URL)"
+            else
+              echo "- Build id: \`$ID\` (open https://expo.dev to find it)"
+            fi
             echo ""
             echo "When the build finishes (typically 10-25 min), open the build page on a phone, tap **Install**, and accept 'install from unknown sources'. The APK is also downloadable from the same page."
           } >> "$GITHUB_STEP_SUMMARY"
