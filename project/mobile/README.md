@@ -127,6 +127,53 @@ The resulting `app-release.apk` is the downloadable artifact. Note that an unsig
 
 Make sure `expo.extra.apiBaseUrl` in `app.json` points at your **deployed** backend (e.g. the Railway URL). Once an APK is built, the API URL is baked in — `localhost` won't work on a real phone.
 
+## Build for iOS (iPhone / iPad)
+
+iOS is more locked down than Android — Apple does not allow free-form `.ipa` sideloading. Pick one of three paths depending on who needs to install the app:
+
+### Option A — TestFlight (recommended for distributing to other people)
+
+Requires an [Apple Developer Program](https://developer.apple.com/programs/) membership ($99/yr).
+
+```bash
+cd project/mobile
+eas build --platform ios --profile production
+eas submit --platform ios --latest
+```
+
+`eas build` handles signing — on first run it prompts for your Apple ID and provisions the certificate and provisioning profile for you. `eas submit` uploads the build to App Store Connect, where you flip it on for TestFlight. Testers install the **TestFlight** app and accept your invite link; up to 10,000 external testers, builds expire after 90 days.
+
+### Option B — Ad Hoc `.ipa` (install on a known list of devices)
+
+Also requires the $99/yr Apple Developer membership. Lets you produce an `.ipa` you can host (e.g. on Expo's diawi-style internal distribution page) and install on up to 100 devices whose UDIDs you've registered.
+
+```bash
+cd project/mobile
+eas device:create                                            # registers a device UDID
+eas build --platform ios --profile preview-device           # signed for those devices
+```
+
+EAS prints an install URL — open it in Safari **on the registered device**, tap install.
+
+### Option C — iOS Simulator build (free, Mac-only, simulator-only)
+
+No Apple Developer account needed. Produces a `.app` bundle that runs in the iOS Simulator on a Mac running Xcode — useful for demos without paying for a developer account, but it cannot run on a physical iPhone.
+
+```bash
+cd project/mobile
+eas build --platform ios --profile preview                  # ios.simulator: true
+```
+
+### Build both at once
+
+```bash
+eas build --platform all --profile production
+```
+
+### Why no "downloadable IPA for everyone"?
+
+Apple requires every app installed on a real device to be signed with a certificate tied to either (a) the App Store, (b) a TestFlight build, or (c) an Ad Hoc provisioning profile that explicitly lists each device's UDID. There's no Android-style "install from unknown sources" toggle. The closest equivalents are TestFlight (Option A) and Ad Hoc (Option B) above.
+
 ## How it works
 
 1. **HomeScreen** — shows "Take a Photo" and "Upload from Gallery" buttons. Requests camera / media library permissions on demand.
