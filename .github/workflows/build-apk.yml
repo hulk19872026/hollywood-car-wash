@@ -33,8 +33,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: project/mobile/package-lock.json
 
       - name: Set up EAS CLI
         uses: expo/expo-github-action@v8
