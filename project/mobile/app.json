@@ -33,7 +33,7 @@
       ]
     ],
     "extra": {
-      "apiBaseUrl": "https://your-railway-app.up.railway.app"
+      "apiBaseUrl": "https://hollywood-car-wash-production.up.railway.app"
     }
   }
 }
