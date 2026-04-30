@@ -18,9 +18,6 @@ on:
       - "project/mobile/**"
       - ".github/workflows/build-apk.yml"
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   build:
     name: eas build (android, ${{ github.event.inputs.profile || 'preview' }})
@@ -30,10 +27,10 @@ jobs:
         working-directory: project/mobile
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
 
